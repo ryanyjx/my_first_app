@@ -64,6 +64,11 @@ class _LoginScreenState extends State<LoginScreen> {
         selectedCurrency ?? 'MYR',
       );
 
+      await prefs.setString(
+        'baseCurrency_${credential.user!.uid}',
+        selectedCurrency ?? 'MYR',
+      );
+
       await credential.user!.updateDisplayName(username);
       await credential.user!.sendEmailVerification();
 

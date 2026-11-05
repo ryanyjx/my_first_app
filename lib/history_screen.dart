@@ -3,6 +3,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'month_year_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'currency_service.dart';
 
 class HistoryScreen extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
@@ -21,6 +24,14 @@ class HistoryScreen extends StatefulWidget {
 }
 
 class _HistoryScreenState extends State<HistoryScreen> {
+  String get userId => FirebaseAuth.instance.currentUser!.uid;
+
+  String baseCurrency = 'MYR';
+  String displayCurrency = 'MYR';
+
+  Map<String, double> exchangeRates = {
+    'MYR': 1.0,
+  };
   DateTime? selectedMonth;
   String selectedType = 'All';
   String selectedCategory = 'All';
@@ -36,6 +47,58 @@ class _HistoryScreenState extends State<HistoryScreen> {
     'Gift',
     'Other',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    loadCurrencySettings();
+  }
+
+  Future<void> loadCurrencySettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final savedBaseCurrency = prefs.getString('baseCurrency_$userId') ?? 'MYR';
+
+    final savedDisplayCurrency =
+        prefs.getString('currency_$userId') ?? savedBaseCurrency;
+
+    try {
+      final rates = await CurrencyService.getRates(savedBaseCurrency);
+
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedDisplayCurrency;
+        exchangeRates = rates;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedBaseCurrency;
+        exchangeRates = {savedBaseCurrency: 1.0};
+      });
+    }
+  }
+
+  double convertAmount(double amount) {
+    final rate = exchangeRates[displayCurrency];
+
+    if (rate == null) {
+      return amount;
+    }
+
+    return amount * rate;
+  }
+
+  String formatDisplayAmount(double amount) {
+    return CurrencyService.formatAmount(
+      convertAmount(amount),
+      displayCurrency,
+    );
+  }
 
   List<Map<String, dynamic>> get filteredTransactions {
     final results = widget.transactions.where((transaction) {
@@ -329,7 +392,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                 '${date != null ? DateFormat('dd MMM yyyy').format(date) : 'No date'}',
                               ),
                               trailing: Text(
-                                '${isExpense ? '- ' : '+ '}RM ${amount.toStringAsFixed(2)}',
+                                '${isExpense ? '- ' : '+ '}${formatDisplayAmount(amount)}',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: isExpense

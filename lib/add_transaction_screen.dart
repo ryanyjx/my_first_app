@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'currency_service.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? transaction;
+  final String baseCurrency;
 
   const AddTransactionScreen({
     super.key,
     this.transaction,
+    this.baseCurrency = 'MYR',
   });
 
   @override
@@ -121,7 +124,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text('Amount (RM)'),
+            Text('Amount (${widget.baseCurrency})'),
             const SizedBox(height: 8),
             TextField(
               controller: amountController,
@@ -131,10 +134,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               inputFormatters: [
                 MoneyInputFormatter(),
               ],
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 hintText: '0.00',
-                prefixText: 'RM ',
-                border: OutlineInputBorder(),
+                prefixText:
+                    '${CurrencyService.getCurrencySymbol(widget.baseCurrency)} ',
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 20),

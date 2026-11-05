@@ -15,6 +15,7 @@ import 'budget_screen.dart';
 import 'month_year_picker.dart';
 import 'history_screen.dart';
 import 'profile_screen.dart';
+import 'currency_service.dart';
 
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
@@ -102,6 +103,14 @@ class _HomeScreenState extends State<HomeScreen> {
   double startingBalance = 0.00;
   double startingIncome = 0.00;
   double startingExpenses = 0.00;
+  String baseCurrency = 'MYR';
+  String displayCurrency = 'MYR';
+
+  Map<String, double> exchangeRates = {
+    'MYR': 1.0,
+  };
+
+  bool isCurrencyLoading = true;
 
   List<Map<String, dynamic>> get filteredTransactions {
     return transactions.where((transaction) {
@@ -119,6 +128,55 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     loadTransactions();
     loadStartingValues();
+    loadCurrencySettings();
+  }
+
+  Future<void> loadCurrencySettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final savedBaseCurrency = prefs.getString('baseCurrency_$userId') ?? 'MYR';
+
+    final savedDisplayCurrency =
+        prefs.getString('currency_$userId') ?? savedBaseCurrency;
+
+    try {
+      final rates = await CurrencyService.getRates(savedBaseCurrency);
+
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedDisplayCurrency;
+        exchangeRates = rates;
+        isCurrencyLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedDisplayCurrency;
+        exchangeRates = {savedBaseCurrency: 1.0};
+        isCurrencyLoading = false;
+      });
+    }
+  }
+
+  double convertAmount(double amount) {
+    final rate = exchangeRates[displayCurrency];
+
+    if (rate == null) {
+      return amount;
+    }
+
+    return amount * rate;
+  }
+
+  String formatDisplayAmount(double amount) {
+    return CurrencyService.formatAmount(
+      convertAmount(amount),
+      displayCurrency,
+    );
   }
 
   Future<void> loadTransactions() async {
@@ -259,6 +317,7 @@ class _HomeScreenState extends State<HomeScreen> {
               MaterialPageRoute(
                 builder: (context) => AddTransactionScreen(
                   transaction: transaction,
+                  baseCurrency: baseCurrency,
                 ),
               ),
             );
@@ -372,7 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     const SizedBox(height: 12),
                     Text(
-                      'RM ${totalBalance.toStringAsFixed(2)}',
+                      formatDisplayAmount(totalBalance),
                       style: const TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.bold,
@@ -417,7 +476,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: SummaryCard(
                     title: 'Income',
-                    amount: 'RM ${monthlyIncome.toStringAsFixed(2)}',
+                    amount: formatDisplayAmount(monthlyIncome),
                     icon: Icons.arrow_downward,
                     iconColor: Colors.greenAccent,
                   ),
@@ -426,7 +485,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 Expanded(
                   child: SummaryCard(
                     title: 'Expenses',
-                    amount: 'RM ${monthlyExpenses.toStringAsFixed(2)}',
+                    amount: formatDisplayAmount(monthlyExpenses),
                     icon: Icons.arrow_upward,
                     iconColor: Colors.redAccent,
                   ),
@@ -545,6 +604,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         MaterialPageRoute(
                           builder: (context) => AddTransactionScreen(
                             transaction: transaction,
+                            baseCurrency: baseCurrency,
                           ),
                         ),
                       );
@@ -564,7 +624,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       title: transaction['description'] as String,
                       category: transaction['category'] as String,
                       amount:
-                          '${isExpense ? '- ' : '+ '}RM ${amount.toStringAsFixed(2)}',
+                          '${isExpense ? '- ' : '+ '}${formatDisplayAmount(amount)}',
                       date: transaction['date'] ?? '',
                       icon: Icons.receipt_long,
                       isExpense: isExpense,
@@ -590,7 +650,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 final result = await Navigator.push<Map<String, dynamic>>(
                   context,
                   MaterialPageRoute(
-                    builder: (context) => const AddTransactionScreen(),
+                    builder: (context) => AddTransactionScreen(
+                      baseCurrency: baseCurrency,
+                    ),
                   ),
                 );
 
@@ -613,6 +675,11 @@ class _HomeScreenState extends State<HomeScreen> {
           setState(() {
             selectedIndex = index;
           });
+
+          // Refresh currency settings when leaving Profile.
+          if (selectedIndex != 3) {
+            loadCurrencySettings();
+          }
         },
         destinations: const [
           NavigationDestination(

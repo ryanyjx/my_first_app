@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'month_year_picker.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'currency_service.dart';
 
 class MonthlyOverviewScreen extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
@@ -16,7 +19,67 @@ class MonthlyOverviewScreen extends StatefulWidget {
 }
 
 class _MonthlyOverviewScreenState extends State<MonthlyOverviewScreen> {
+  String get userId => FirebaseAuth.instance.currentUser!.uid;
+
+  String baseCurrency = 'MYR';
+  String displayCurrency = 'MYR';
+
+  Map<String, double> exchangeRates = {
+    'MYR': 1.0,
+  };
   DateTime selectedMonth = DateTime.now();
+
+  @override
+  void initState() {
+    super.initState();
+    loadCurrencySettings();
+  }
+
+  Future<void> loadCurrencySettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final savedBaseCurrency = prefs.getString('baseCurrency_$userId') ?? 'MYR';
+
+    final savedDisplayCurrency =
+        prefs.getString('currency_$userId') ?? savedBaseCurrency;
+
+    try {
+      final rates = await CurrencyService.getRates(savedBaseCurrency);
+
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedDisplayCurrency;
+        exchangeRates = rates;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedBaseCurrency;
+        exchangeRates = {savedBaseCurrency: 1.0};
+      });
+    }
+  }
+
+  double convertAmount(double amount) {
+    final rate = exchangeRates[displayCurrency];
+
+    if (rate == null) {
+      return amount;
+    }
+
+    return amount * rate;
+  }
+
+  String formatDisplayAmount(double amount) {
+    return CurrencyService.formatAmount(
+      convertAmount(amount),
+      displayCurrency,
+    );
+  }
 
   List<Map<String, dynamic>> get filteredTransactions {
     return widget.transactions.where((transaction) {
@@ -211,7 +274,7 @@ class _MonthlyOverviewScreenState extends State<MonthlyOverviewScreen> {
                             ),
                           ),
                           Text(
-                            'RM ${entry.value.toStringAsFixed(2)}',
+                            formatDisplayAmount(entry.value),
                             style: const TextStyle(
                               fontWeight: FontWeight.bold,
                             ),
@@ -267,7 +330,7 @@ class _MonthlyOverviewScreenState extends State<MonthlyOverviewScreen> {
           ],
         ),
         Text(
-          'RM ${amount.toStringAsFixed(2)}',
+          formatDisplayAmount(amount),
           style: const TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 16,

@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'month_year_picker.dart';
 import 'add_transaction_screen.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'currency_service.dart';
 
 class BudgetScreen extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
@@ -18,6 +19,12 @@ class BudgetScreen extends StatefulWidget {
 
 class _BudgetScreenState extends State<BudgetScreen> {
   String get userId => FirebaseAuth.instance.currentUser!.uid;
+  String baseCurrency = 'MYR';
+  String displayCurrency = 'MYR';
+
+  Map<String, double> exchangeRates = {
+    'MYR': 1.0,
+  };
   final List<String> categories = [
     'Food',
     'Transport',
@@ -56,6 +63,53 @@ class _BudgetScreenState extends State<BudgetScreen> {
   void initState() {
     super.initState();
     loadBudgets();
+    loadCurrencySettings();
+  }
+
+  Future<void> loadCurrencySettings() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final savedBaseCurrency = prefs.getString('baseCurrency_$userId') ?? 'MYR';
+
+    final savedDisplayCurrency =
+        prefs.getString('currency_$userId') ?? savedBaseCurrency;
+
+    try {
+      final rates = await CurrencyService.getRates(savedBaseCurrency);
+
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedDisplayCurrency;
+        exchangeRates = rates;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      setState(() {
+        baseCurrency = savedBaseCurrency;
+        displayCurrency = savedBaseCurrency;
+        exchangeRates = {savedBaseCurrency: 1.0};
+      });
+    }
+  }
+
+  double convertAmount(double amount) {
+    final rate = exchangeRates[displayCurrency];
+
+    if (rate == null) {
+      return amount;
+    }
+
+    return amount * rate;
+  }
+
+  String formatDisplayAmount(double amount) {
+    return CurrencyService.formatAmount(
+      convertAmount(amount),
+      displayCurrency,
+    );
   }
 
   Future<void> loadBudgets() async {
@@ -130,8 +184,8 @@ class _BudgetScreenState extends State<BudgetScreen> {
             inputFormatters: [
               MoneyInputFormatter(),
             ],
-            decoration: const InputDecoration(
-              labelText: 'Budget Amount (RM)',
+            decoration: InputDecoration(
+              labelText: 'Budget Amount ($baseCurrency)',
             ),
           ),
           actions: [
@@ -243,10 +297,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Spent: RM ${spent.toStringAsFixed(2)}',
+                            'Spent: ${formatDisplayAmount(spent)}',
                           ),
                           Text(
-                            'Budget: RM ${budget.toStringAsFixed(2)}',
+                            'Budget: ${formatDisplayAmount(budget)}',
                           ),
                           const SizedBox(height: 12),
                           LinearProgressIndicator(

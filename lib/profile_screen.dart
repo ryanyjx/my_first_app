@@ -48,12 +48,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final prefs = await SharedPreferences.getInstance();
 
-    final savedCurrency = prefs.getString('currency_${user.uid}');
+    final currencyKey = 'currency_${user.uid}';
+    final baseCurrencyKey = 'baseCurrency_${user.uid}';
+
+    final savedCurrency = prefs.getString(currencyKey) ?? 'MYR';
+
+    // Set MYR as the base currency for existing accounts
+    // that don't have a base currency saved yet.
+    if (!prefs.containsKey(baseCurrencyKey)) {
+      await prefs.setString(baseCurrencyKey, 'MYR');
+    }
 
     if (!mounted) return;
 
     setState(() {
-      currentCurrency = savedCurrency ?? 'MYR';
+      currentCurrency = savedCurrency;
     });
   }
 
