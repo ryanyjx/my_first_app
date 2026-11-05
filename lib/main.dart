@@ -14,6 +14,7 @@ import 'monthly_overview_screen.dart';
 import 'budget_screen.dart';
 import 'month_year_picker.dart';
 import 'history_screen.dart';
+import 'profile_screen.dart';
 
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
@@ -58,7 +59,7 @@ class AuthGate extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -68,7 +69,9 @@ class AuthGate extends StatelessWidget {
           );
         }
 
-        if (snapshot.hasData) {
+        if (snapshot.hasData &&
+            snapshot.data!.emailVerified &&
+            !registrationPending) {
           return const HomeScreen();
         }
 
@@ -86,9 +89,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  int selectedIndex = 0;
+
   List<Map<String, dynamic>> transactions = [];
 
   DateTime selectedMonth = DateTime.now();
+
+  double startingBalance = 0.00;
+  double startingIncome = 0.00;
+  double startingExpenses = 0.00;
 
   List<Map<String, dynamic>> get filteredTransactions {
     return transactions.where((transaction) {
@@ -143,9 +152,6 @@ class _HomeScreenState extends State<HomeScreen> {
     await saveStartingValues();
   }
 
-  double startingBalance = 0.00;
-  double startingIncome = 0.00;
-  double startingExpenses = 0.00;
   Future<void> saveStartingValues() async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -182,366 +188,377 @@ class _HomeScreenState extends State<HomeScreen> {
     return totalIncome - totalExpenses;
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: const [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Hello there 👋',
-                        style: TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
-                        ),
-                      ),
-                      SizedBox(height: 5),
-                      Text(
-                        'BudgetBuddy',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  CircleAvatar(
-                    backgroundColor: cardColor,
-                    child: Icon(Icons.person, color: blue),
-                  ),
-                ],
-              ),
+  Widget getSelectedPage() {
+    switch (selectedIndex) {
+      case 1:
+        return BudgetScreen(
+          transactions: transactions,
+        );
 
-              const SizedBox(height: 30),
-
-              // Total Balance
-              InkWell(
-                borderRadius: BorderRadius.circular(20),
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => MonthlyOverviewScreen(
-                        transactions: transactions,
-                      ),
-                    ),
-                  );
-                },
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF3D7BFF), Color(0xFF2455C3)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Total Balance',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                      SizedBox(height: 12),
-                      Text(
-                        'RM ${totalBalance.toStringAsFixed(2)}',
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Your current balance',
-                        style: TextStyle(color: Colors.white70),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          Text(
-                            'View Monthly Overview',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 5),
-                          const Icon(
-                            Icons.arrow_forward_ios,
-                            color: Colors.white,
-                            size: 12,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              const SizedBox(height: 25),
-
-              // Income and Expenses
-              Row(
-                children: [
-                  Expanded(
-                    child: SummaryCard(
-                      title: 'Income',
-                      amount: 'RM ${monthlyIncome.toStringAsFixed(2)}',
-                      icon: Icons.arrow_downward,
-                      iconColor: Colors.greenAccent,
-                    ),
-                  ),
-                  const SizedBox(width: 15),
-                  Expanded(
-                    child: SummaryCard(
-                      title: 'Expenses',
-                      amount: 'RM ${monthlyExpenses.toStringAsFixed(2)}',
-                      icon: Icons.arrow_upward,
-                      iconColor: Colors.redAccent,
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 20),
-
-              // Recent Transactions
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    'Recent Transactions',
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () async {
-                      final picked = await showMonthYearPicker(
-                        context: context,
-                        initialDate: selectedMonth,
-                      );
-
-                      if (picked != null) {
-                        setState(() {
-                          selectedMonth = picked;
-                        });
-                      }
-                    },
-                    child: Text(
-                      DateFormat('MMMM yyyy').format(selectedMonth),
-                      style: const TextStyle(color: Colors.blueAccent),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 15),
-
-              if (filteredTransactions.isEmpty)
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 20),
-                  child: Center(
-                    child: Text(
-                      'No new transactions yet.',
-                      style: TextStyle(color: Colors.white60),
-                    ),
-                  ),
-                )
-              else
-                ...filteredTransactions.reversed.map<Widget>((transaction) {
-                  final isExpense = transaction['type'] == 'Expense';
-                  final amount = transaction['amount'] as double;
-
-                  return Dismissible(
-                    key: ValueKey(
-                      transaction['id'] ?? transaction.hashCode,
-                    ),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.only(right: 20),
-                      alignment: Alignment.centerRight,
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(15),
-                      ),
-                      child: const Icon(
-                        Icons.delete,
-                        color: Colors.white,
-                      ),
-                    ),
-                    confirmDismiss: (direction) async {
-                      return await showDialog<bool>(
-                        context: context,
-                        builder: (context) => AlertDialog(
-                          title: const Text('Delete Transaction?'),
-                          content: const Text(
-                            'Are you sure you want to delete this transaction?',
-                          ),
-                          actions: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context, false);
-                              },
-                              child: const Text('Cancel'),
-                            ),
-                            TextButton(
-                              onPressed: () {
-                                Navigator.pop(context, true);
-                              },
-                              child: const Text(
-                                'Delete',
-                                style: TextStyle(color: Colors.red),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    onDismissed: (direction) async {
-                      setState(() {
-                        transactions.remove(transaction);
-                      });
-
-                      await saveTransactions();
-                    },
-                    child: GestureDetector(
-                      onTap: () async {
-                        final result =
-                            await Navigator.push<Map<String, dynamic>>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddTransactionScreen(
-                              transaction: transaction,
-                            ),
-                          ),
-                        );
-
-                        if (result != null) {
-                          setState(() {
-                            final index = transactions.indexOf(transaction);
-                            if (index != -1) {
-                              transactions[index] = result;
-                            }
-                          });
-
-                          await saveTransactions();
-                        }
-                      },
-                      child: TransactionTile(
-                        title: transaction['description'] as String,
-                        category: transaction['category'] as String,
-                        amount:
-                            '${isExpense ? '- ' : '+ '}RM ${amount.toStringAsFixed(2)}',
-                        date: transaction['date'] ?? '',
-                        icon: Icons.receipt_long,
-                        isExpense: isExpense,
-                      ),
-                    ),
-                  );
-                }).toList(),
-            ],
-          ),
-        ),
-      ),
-
-      // Floating Add Button
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: blue,
-        foregroundColor: Colors.white,
-        onPressed: () async {
-          final result = await Navigator.push<Map<String, dynamic>>(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const AddTransactionScreen(),
-            ),
-          );
-
-          if (result != null) {
-            setState(() {
-              transactions.add(result);
-            });
-
-            await saveTransactions();
-          }
-        },
-        child: const Icon(Icons.add, size: 30),
-      ),
-
-      // Bottom Navigation
-      bottomNavigationBar: NavigationBar(
-        backgroundColor: cardColor,
-        onDestinationSelected: (index) {
-          if (index == 1) {
-            Navigator.push(
+      case 2:
+        return HistoryScreen(
+          transactions: transactions,
+          onEdit: (transaction) async {
+            final result = await Navigator.push<Map<String, dynamic>>(
               context,
               MaterialPageRoute(
-                builder: (context) => BudgetScreen(
-                  transactions: transactions,
+                builder: (context) => AddTransactionScreen(
+                  transaction: transaction,
                 ),
               ),
             );
-          } else if (index == 2) {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => HistoryScreen(
-                  transactions: transactions,
-                  onEdit: (transaction) async {
-                    final result = await Navigator.push<Map<String, dynamic>>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => AddTransactionScreen(
-                          transaction: transaction,
-                        ),
+
+            if (result != null) {
+              setState(() {
+                final index = transactions.indexOf(transaction);
+                if (index != -1) {
+                  transactions[index] = result;
+                }
+              });
+
+              await saveTransactions();
+            }
+          },
+          onDelete: (transaction) async {
+            setState(() {
+              transactions.remove(transaction);
+            });
+
+            await saveTransactions();
+          },
+        );
+
+      case 3:
+        return const ProfileScreen();
+
+      default:
+        return buildHomePage();
+    }
+  }
+
+  Widget buildHomePage() {
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Hello ${FirebaseAuth.instance.currentUser?.displayName ?? 'there'} 👋',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 14,
                       ),
+                    ),
+                    const SizedBox(height: 5),
+                    const Text(
+                      'BudgetBuddy',
+                      style: TextStyle(
+                        fontSize: 26,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                CircleAvatar(
+                  backgroundColor: cardColor,
+                  backgroundImage:
+                      FirebaseAuth.instance.currentUser?.photoURL != null
+                          ? NetworkImage(
+                              FirebaseAuth.instance.currentUser!.photoURL!,
+                            )
+                          : null,
+                  child: FirebaseAuth.instance.currentUser?.photoURL == null
+                      ? const Icon(Icons.person, color: blue)
+                      : null,
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 30),
+
+            // Total Balance
+            InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => MonthlyOverviewScreen(
+                      transactions: transactions,
+                    ),
+                  ),
+                );
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF3D7BFF), Color(0xFF2455C3)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Total Balance',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'RM ${totalBalance.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Your current balance',
+                      style: TextStyle(color: Colors.white70),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        const Text(
+                          'View Monthly Overview',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(width: 5),
+                        const Icon(
+                          Icons.arrow_forward_ios,
+                          color: Colors.white,
+                          size: 12,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 25),
+
+            // Income and Expenses
+            Row(
+              children: [
+                Expanded(
+                  child: SummaryCard(
+                    title: 'Income',
+                    amount: 'RM ${monthlyIncome.toStringAsFixed(2)}',
+                    icon: Icons.arrow_downward,
+                    iconColor: Colors.greenAccent,
+                  ),
+                ),
+                const SizedBox(width: 15),
+                Expanded(
+                  child: SummaryCard(
+                    title: 'Expenses',
+                    amount: 'RM ${monthlyExpenses.toStringAsFixed(2)}',
+                    icon: Icons.arrow_upward,
+                    iconColor: Colors.redAccent,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 20),
+
+            // Recent Transactions
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Recent Transactions',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () async {
+                    final picked = await showMonthYearPicker(
+                      context: context,
+                      initialDate: selectedMonth,
                     );
 
-                    if (result != null) {
+                    if (picked != null) {
                       setState(() {
-                        final transactionIndex =
-                            transactions.indexOf(transaction);
-
-                        if (transactionIndex != -1) {
-                          transactions[transactionIndex] = result;
-                        }
+                        selectedMonth = picked;
                       });
-
-                      await saveTransactions();
                     }
                   },
-                  onDelete: (transaction) async {
+                  child: Text(
+                    DateFormat('MMMM yyyy').format(selectedMonth),
+                    style: const TextStyle(color: Colors.blueAccent),
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 15),
+
+            if (filteredTransactions.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: Text(
+                    'No new transactions yet.',
+                    style: TextStyle(color: Colors.white60),
+                  ),
+                ),
+              )
+            else
+              ...filteredTransactions.reversed.map<Widget>((transaction) {
+                final isExpense = transaction['type'] == 'Expense';
+                final amount = (transaction['amount'] as num).toDouble();
+
+                return Dismissible(
+                  key: ValueKey(
+                    transaction['id'] ?? transaction.hashCode,
+                  ),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(right: 20),
+                    alignment: Alignment.centerRight,
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: const Icon(
+                      Icons.delete,
+                      color: Colors.white,
+                    ),
+                  ),
+                  confirmDismiss: (direction) async {
+                    return await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Transaction?'),
+                        content: const Text(
+                          'Are you sure you want to delete this transaction?',
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context, false);
+                            },
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              Navigator.pop(context, true);
+                            },
+                            child: const Text(
+                              'Delete',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  onDismissed: (direction) async {
                     setState(() {
                       transactions.remove(transaction);
                     });
 
                     await saveTransactions();
                   },
-                ),
-              ),
-            );
-          }
-        },
+                  child: GestureDetector(
+                    onTap: () async {
+                      final result = await Navigator.push<Map<String, dynamic>>(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => AddTransactionScreen(
+                            transaction: transaction,
+                          ),
+                        ),
+                      );
+
+                      if (result != null) {
+                        setState(() {
+                          final index = transactions.indexOf(transaction);
+                          if (index != -1) {
+                            transactions[index] = result;
+                          }
+                        });
+
+                        await saveTransactions();
+                      }
+                    },
+                    child: TransactionTile(
+                      title: transaction['description'] as String,
+                      category: transaction['category'] as String,
+                      amount:
+                          '${isExpense ? '- ' : '+ '}RM ${amount.toStringAsFixed(2)}',
+                      date: transaction['date'] ?? '',
+                      icon: Icons.receipt_long,
+                      isExpense: isExpense,
+                    ),
+                  ),
+                );
+              }).toList(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: getSelectedPage(),
+      floatingActionButton: selectedIndex == 0
+          ? FloatingActionButton(
+              backgroundColor: blue,
+              foregroundColor: Colors.white,
+              onPressed: () async {
+                final result = await Navigator.push<Map<String, dynamic>>(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AddTransactionScreen(),
+                  ),
+                );
+
+                if (result != null) {
+                  setState(() {
+                    transactions.add(result);
+                  });
+
+                  await saveTransactions();
+                }
+              },
+              child: const Icon(Icons.add, size: 30),
+            )
+          : null,
+      bottomNavigationBar: NavigationBar(
+        backgroundColor: cardColor,
         indicatorColor: blue.withOpacity(0.25),
-        selectedIndex: 0,
+        selectedIndex: selectedIndex,
+        onDestinationSelected: (index) {
+          setState(() {
+            selectedIndex = index;
+          });
+        },
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.home_outlined),
@@ -560,6 +577,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
             label: 'Profile',
           ),
         ],
@@ -648,9 +666,28 @@ class TransactionTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          CircleAvatar(
-            backgroundColor: backgroundColor,
-            child: Icon(icon, color: blue),
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfileScreen(),
+                ),
+              );
+            },
+            borderRadius: BorderRadius.circular(30),
+            child: CircleAvatar(
+              backgroundColor: cardColor,
+              backgroundImage:
+                  FirebaseAuth.instance.currentUser?.photoURL != null
+                      ? NetworkImage(
+                          FirebaseAuth.instance.currentUser!.photoURL!,
+                        )
+                      : null,
+              child: FirebaseAuth.instance.currentUser?.photoURL == null
+                  ? const Icon(Icons.person, color: blue)
+                  : null,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(

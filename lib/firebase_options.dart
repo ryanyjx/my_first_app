@@ -4,23 +4,10 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
-/// Default [FirebaseOptions] for use with your Firebase apps.
-///
-/// Example:
-/// ```dart
-/// import 'firebase_options.dart';
-/// // ...
-/// await Firebase.initializeApp(
-///   options: DefaultFirebaseOptions.currentPlatform,
-/// );
-/// ```
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -48,6 +35,16 @@ class DefaultFirebaseOptions {
         );
     }
   }
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyC0aMzmwXFigMUdw5CuH4e2V4zAKN4xsHM',
+    appId: '1:801868975885:web:86e6cda249d9cd92beea44',
+    messagingSenderId: '801868975885',
+    projectId: 'budgetbuddy-ea5d3',
+    authDomain: 'budgetbuddy-ea5d3.firebaseapp.com',
+    storageBucket: 'budgetbuddy-ea5d3.firebasestorage.app',
+    measurementId: 'G-DY83HX99YW',
+  );
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyAtGLxYliYYD_r878VwHYsq6gtI7jQzS88',
