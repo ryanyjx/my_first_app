@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'month_year_picker.dart';
 
 class MonthlyOverviewScreen extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
@@ -72,20 +73,14 @@ class _MonthlyOverviewScreenState extends State<MonthlyOverviewScreen> {
             Center(
               child: TextButton.icon(
                 onPressed: () async {
-                  final picked = await showDatePicker(
+                  final picked = await showMonthYearPicker(
                     context: context,
                     initialDate: selectedMonth,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2035),
-                    initialDatePickerMode: DatePickerMode.year,
                   );
 
                   if (picked != null) {
                     setState(() {
-                      selectedMonth = DateTime(
-                        picked.year,
-                        picked.month,
-                      );
+                      selectedMonth = picked;
                     });
                   }
                 },

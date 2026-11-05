@@ -6,6 +6,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'add_transaction_screen.dart';
 import 'package:intl/intl.dart';
 import 'monthly_overview_screen.dart';
+import 'budget_screen.dart';
+import 'month_year_picker.dart';
+import 'history_screen.dart';
 
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
@@ -279,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
 
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
 
               // Recent Transactions
               Row(
@@ -294,17 +297,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   TextButton(
                     onPressed: () async {
-                      final picked = await showDatePicker(
+                      final picked = await showMonthYearPicker(
                         context: context,
                         initialDate: selectedMonth,
-                        firstDate: DateTime(2020),
-                        lastDate: DateTime(2035),
-                        initialDatePickerMode: DatePickerMode.year,
                       );
 
                       if (picked != null) {
                         setState(() {
-                          selectedMonth = DateTime(picked.year, picked.month);
+                          selectedMonth = picked;
                         });
                       }
                     },
@@ -452,6 +452,57 @@ class _HomeScreenState extends State<HomeScreen> {
       // Bottom Navigation
       bottomNavigationBar: NavigationBar(
         backgroundColor: cardColor,
+        onDestinationSelected: (index) {
+          if (index == 1) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => BudgetScreen(
+                  transactions: transactions,
+                ),
+              ),
+            );
+          } else if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => HistoryScreen(
+                  transactions: transactions,
+                  onEdit: (transaction) async {
+                    final result = await Navigator.push<Map<String, dynamic>>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => AddTransactionScreen(
+                          transaction: transaction,
+                        ),
+                      ),
+                    );
+
+                    if (result != null) {
+                      setState(() {
+                        final transactionIndex =
+                            transactions.indexOf(transaction);
+
+                        if (transactionIndex != -1) {
+                          transactions[transactionIndex] = result;
+                        }
+                      });
+
+                      await saveTransactions();
+                    }
+                  },
+                  onDelete: (transaction) async {
+                    setState(() {
+                      transactions.remove(transaction);
+                    });
+
+                    await saveTransactions();
+                  },
+                ),
+              ),
+            );
+          }
+        },
         indicatorColor: blue.withOpacity(0.25),
         selectedIndex: 0,
         destinations: const [
@@ -461,12 +512,14 @@ class _HomeScreenState extends State<HomeScreen> {
             label: 'Home',
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            label: 'History',
+            icon: Icon(Icons.account_balance_wallet_outlined),
+            selectedIcon: Icon(Icons.account_balance_wallet),
+            label: 'Budgets',
           ),
           NavigationDestination(
-            icon: Icon(Icons.bar_chart_outlined),
-            label: 'Stats',
+            icon: Icon(Icons.receipt_long_outlined),
+            selectedIcon: Icon(Icons.receipt_long),
+            label: 'History',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),

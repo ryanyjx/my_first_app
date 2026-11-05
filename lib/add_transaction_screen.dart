@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? transaction;
@@ -74,12 +75,13 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         title: Text(
           widget.transaction == null ? 'Add Transaction' : 'Edit Transaction',
         ),
       ),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -126,6 +128,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               keyboardType: const TextInputType.numberWithOptions(
                 decimal: true,
               ),
+              inputFormatters: [
+                MoneyInputFormatter(),
+              ],
               decoration: const InputDecoration(
                 hintText: '0.00',
                 prefixText: 'RM ',
@@ -180,7 +185,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
               ),
             ),
-            const Spacer(),
+            const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -195,6 +200,31 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           ],
         ),
       ),
+    );
+  }
+}
+
+class MoneyInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (digits.isEmpty) {
+      return const TextEditingValue(
+        text: '00.00',
+        selection: TextSelection.collapsed(offset: 5),
+      );
+    }
+
+    final amount = int.parse(digits);
+    final formatted = (amount / 100).toStringAsFixed(2);
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
     );
   }
 }
