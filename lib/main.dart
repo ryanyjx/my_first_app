@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'add_transaction_screen.dart';
+import 'package:intl/intl.dart';
 
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
@@ -325,6 +326,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         category: transaction['category'] as String,
                         amount:
                             '${isExpense ? '- ' : '+ '}RM ${amount.toStringAsFixed(2)}',
+                        date: transaction['date'] ?? '',
                         icon: Icons.receipt_long,
                         isExpense: isExpense,
                       ),
@@ -443,6 +445,7 @@ class TransactionTile extends StatelessWidget {
   final String title;
   final String category;
   final String amount;
+  final String date;
   final IconData icon;
   final bool isExpense;
 
@@ -451,6 +454,7 @@ class TransactionTile extends StatelessWidget {
     required this.title,
     required this.category,
     required this.amount,
+    required this.date,
     required this.icon,
     required this.isExpense,
   });
@@ -478,6 +482,23 @@ class TransactionTile extends StatelessWidget {
                 Text(
                   title,
                   style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                Text(
+                  date.isNotEmpty
+                      ? DateFormat('dd MMM yyyy').format(DateTime.parse(date))
+                      : 'No date',
+                  style: const TextStyle(
+                    color: Colors.white54,
+                    fontSize: 11,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  category,
+                  style: const TextStyle(
+                    color: Colors.white60,
+                    fontSize: 12,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(

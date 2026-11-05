@@ -15,6 +15,7 @@ class AddTransactionScreen extends StatefulWidget {
 class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String transactionType = 'Expense';
   String selectedCategory = 'Food';
+  DateTime selectedDate = DateTime.now();
 
   final descriptionController = TextEditingController();
   final amountController = TextEditingController();
@@ -30,6 +31,9 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       selectedCategory = transaction['category'];
       descriptionController.text = transaction['description'];
       amountController.text = transaction['amount'].toString();
+      selectedDate = transaction['date'] != null
+          ? DateTime.parse(transaction['date'])
+          : DateTime.now();
     }
   }
 
@@ -58,6 +62,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       'amount': amount,
       'type': transactionType,
       'category': selectedCategory,
+      'date': selectedDate.toIso8601String(),
     };
 
     Navigator.pop(context, {
@@ -151,6 +156,29 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                   });
                 }
               },
+            ),
+            const SizedBox(height: 20),
+            const Text('Transaction Date'),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                final pickedDate = await showDatePicker(
+                  context: context,
+                  initialDate: selectedDate,
+                  firstDate: DateTime(2020),
+                  lastDate: DateTime.now(),
+                );
+
+                if (pickedDate != null) {
+                  setState(() {
+                    selectedDate = pickedDate;
+                  });
+                }
+              },
+              icon: const Icon(Icons.calendar_today),
+              label: Text(
+                '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
+              ),
             ),
             const Spacer(),
             SizedBox(
