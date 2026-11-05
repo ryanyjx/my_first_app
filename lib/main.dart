@@ -93,6 +93,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   List<Map<String, dynamic>> transactions = [];
 
+  String get userId => FirebaseAuth.instance.currentUser!.uid;
+
+  String get transactionsKey => 'transactions_$userId';
+
   DateTime selectedMonth = DateTime.now();
 
   double startingBalance = 0.00;
@@ -120,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> loadTransactions() async {
     final prefs = await SharedPreferences.getInstance();
 
-    final savedTransactions = prefs.getStringList('transactions');
+    final savedTransactions = prefs.getStringList(transactionsKey);
 
     if (savedTransactions != null) {
       setState(() {
@@ -128,16 +132,67 @@ class _HomeScreenState extends State<HomeScreen> {
             .map((item) => Map<String, dynamic>.from(jsonDecode(item)))
             .toList();
       });
+      return;
+    }
+
+    final alreadyMigrated =
+        prefs.getBool('legacyTransactionsMigrated') ?? false;
+
+    if (!alreadyMigrated) {
+      final oldTransactions = prefs.getStringList('transactions');
+
+      if (oldTransactions != null) {
+        await prefs.setStringList(transactionsKey, oldTransactions);
+
+        setState(() {
+          transactions = oldTransactions
+              .map((item) => Map<String, dynamic>.from(jsonDecode(item)))
+              .toList();
+        });
+      }
+
+      await prefs.setBool('legacyTransactionsMigrated', true);
+      await prefs.remove('transactions');
     }
   }
 
   Future<void> loadStartingValues() async {
     final prefs = await SharedPreferences.getInstance();
 
+    final balanceKey = 'startingBalance_$userId';
+    final incomeKey = 'startingIncome_$userId';
+    final expensesKey = 'startingExpenses_$userId';
+
+    // Migrate the old shared values to the current account.
+    if (!(prefs.getBool('legacyStartingValuesMigrated') ?? false)) {
+      await prefs.setDouble(
+        balanceKey,
+        prefs.getDouble('startingBalance') ?? 0.00,
+      );
+
+      await prefs.setDouble(
+        incomeKey,
+        prefs.getDouble('startingIncome') ?? 0.00,
+      );
+
+      await prefs.setDouble(
+        expensesKey,
+        prefs.getDouble('startingExpenses') ?? 0.00,
+      );
+
+      await prefs.remove('startingBalance');
+      await prefs.remove('startingIncome');
+      await prefs.remove('startingExpenses');
+
+      await prefs.setBool('legacyStartingValuesMigrated', true);
+    }
+
+    if (!mounted) return;
+
     setState(() {
-      startingBalance = prefs.getDouble('startingBalance') ?? 0.00;
-      startingIncome = prefs.getDouble('startingIncome') ?? 0.00;
-      startingExpenses = prefs.getDouble('startingExpenses') ?? 0.00;
+      startingBalance = prefs.getDouble(balanceKey) ?? 0.00;
+      startingIncome = prefs.getDouble(incomeKey) ?? 0.00;
+      startingExpenses = prefs.getDouble(expensesKey) ?? 0.00;
     });
   }
 
@@ -147,7 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final savedTransactions =
         transactions.map((transaction) => jsonEncode(transaction)).toList();
 
-    await prefs.setStringList('transactions', savedTransactions);
+    await prefs.setStringList(transactionsKey, savedTransactions);
 
     await saveStartingValues();
   }
@@ -155,9 +210,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> saveStartingValues() async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setDouble('startingBalance', startingBalance);
-    await prefs.setDouble('startingIncome', startingIncome);
-    await prefs.setDouble('startingExpenses', startingExpenses);
+    await prefs.setDouble('startingBalance_$userId', startingBalance);
+    await prefs.setDouble('startingIncome_$userId', startingIncome);
+    await prefs.setDouble('startingExpenses_$userId', startingExpenses);
   }
 
   double get totalIncome {

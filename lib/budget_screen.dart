@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'month_year_picker.dart';
 import 'add_transaction_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class BudgetScreen extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
@@ -16,6 +17,7 @@ class BudgetScreen extends StatefulWidget {
 }
 
 class _BudgetScreenState extends State<BudgetScreen> {
+  String get userId => FirebaseAuth.instance.currentUser!.uid;
   final List<String> categories = [
     'Food',
     'Transport',
@@ -59,9 +61,30 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> loadBudgets() async {
     final prefs = await SharedPreferences.getInstance();
 
+    final alreadyMigrated = prefs.getBool('legacyBudgetsMigrated') ?? false;
+
+    if (!alreadyMigrated) {
+      for (var category in categories) {
+        final oldBudget = prefs.getDouble('budget_$category');
+
+        if (oldBudget != null) {
+          await prefs.setDouble(
+            'budget_${userId}_$category',
+            oldBudget,
+          );
+          await prefs.remove('budget_$category');
+        }
+      }
+
+      await prefs.setBool('legacyBudgetsMigrated', true);
+    }
+
+    if (!mounted) return;
+
     setState(() {
       for (var category in categories) {
-        budgets[category] = prefs.getDouble('budget_$category') ?? 0.0;
+        budgets[category] =
+            prefs.getDouble('budget_${userId}_$category') ?? 0.0;
       }
     });
   }
@@ -69,7 +92,10 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> saveBudget(String category, double amount) async {
     final prefs = await SharedPreferences.getInstance();
 
-    await prefs.setDouble('budget_$category', amount);
+    await prefs.setDouble(
+      'budget_${userId}_$category',
+      amount,
+    );
   }
 
   Future<void> selectMonth() async {

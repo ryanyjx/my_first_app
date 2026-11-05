@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
+import 'package:shared_preferences/shared_preferences.dart';
 
 bool registrationPending = false;
 
@@ -32,10 +33,13 @@ class _LoginScreenState extends State<LoginScreen> {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
 
-    if (username.isEmpty || email.isEmpty || password.isEmpty) {
+    if (username.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        selectedCurrency == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Please fill in all registration fields.'),
+          content: Text('Please fill in all fields and select a currency.'),
         ),
       );
       return;
@@ -51,6 +55,13 @@ class _LoginScreenState extends State<LoginScreen> {
           await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: email,
         password: password,
+      );
+
+      final prefs = await SharedPreferences.getInstance();
+
+      await prefs.setString(
+        'currency_${credential.user!.uid}',
+        selectedCurrency ?? 'MYR',
       );
 
       await credential.user!.updateDisplayName(username);
@@ -249,6 +260,41 @@ class _LoginScreenState extends State<LoginScreen> {
         content: Text('Registration complete! You can now log in.'),
       ),
     );
+  }
+
+  Future<void> resetPassword() async {
+    final email = emailController.text.trim();
+
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter your email address first.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: email,
+      );
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Password reset email sent! Please check your inbox.'),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Unable to send reset email: ${e.message}'),
+        ),
+      );
+    }
   }
 
   Future<void> authenticate() async {
@@ -546,6 +592,20 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
+                if (isLogin)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: isLoading ? null : resetPassword,
+                      child: const Text(
+                        'Forgot Password?',
+                        style: TextStyle(
+                          color: Color(0xFF38BDF8),
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
                 const SizedBox(height: 25),
                 if (!isLogin) ...[
                   ElevatedButton(

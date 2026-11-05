@@ -18,10 +18,13 @@ class ProfileScreen extends StatefulWidget {
 
 class _ProfileScreenState extends State<ProfileScreen> {
   String? profileImagePath;
+  String currentCurrency = '';
+
   @override
   void initState() {
     super.initState();
     loadProfilePicture();
+    loadCurrency();
   }
 
   Future<void> loadProfilePicture() async {
@@ -36,6 +39,96 @@ class _ProfileScreenState extends State<ProfileScreen> {
       setState(() {
         profileImagePath = savedPath;
       });
+    }
+  }
+
+  Future<void> loadCurrency() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    final savedCurrency = prefs.getString('currency_${user.uid}');
+
+    if (!mounted) return;
+
+    setState(() {
+      currentCurrency = savedCurrency ?? 'MYR';
+    });
+  }
+
+  Future<void> changeCurrency() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final selectedCurrency = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        backgroundColor: cardColor,
+        title: const Text(
+          'Select Currency',
+          style: TextStyle(color: Colors.white),
+        ),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'MYR'),
+            child: const Text('MYR - Malaysian Ringgit (RM)',
+                style: TextStyle(color: Colors.white)),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'SGD'),
+            child: const Text('SGD - Singapore Dollar (S\$)',
+                style: TextStyle(color: Colors.white)),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'USD'),
+            child: const Text('USD - US Dollar (\$)',
+                style: TextStyle(color: Colors.white)),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'GBP'),
+            child: const Text('GBP - British Pound (£)',
+                style: TextStyle(color: Colors.white)),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(context, 'EUR'),
+            child: const Text('EUR - Euro (€)',
+                style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (selectedCurrency == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setString(
+      'currency_${user.uid}',
+      selectedCurrency,
+    );
+
+    if (!mounted) return;
+
+    setState(() {
+      currentCurrency = selectedCurrency;
+    });
+  }
+
+  String getCurrencyName(String currency) {
+    switch (currency) {
+      case 'MYR':
+        return 'Malaysian Ringgit (RM)';
+      case 'SGD':
+        return 'Singapore Dollar (S\$)';
+      case 'USD':
+        return 'US Dollar (\$)';
+      case 'GBP':
+        return 'British Pound (£)';
+      case 'EUR':
+        return 'Euro (€)';
+      default:
+        return currency;
     }
   }
 
@@ -400,6 +493,44 @@ class _ProfileScreenState extends State<ProfileScreen> {
               trailing: IconButton(
                 icon: const Icon(Icons.edit, color: blue),
                 onPressed: editEmail,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: cardColor,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.currency_exchange, color: blue),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Currency',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        Text(
+                          getCurrencyName(currentCurrency),
+                          style: const TextStyle(color: Colors.white60),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.edit, color: blue),
+                    onPressed: changeCurrency,
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
