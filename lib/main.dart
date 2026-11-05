@@ -318,6 +318,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context) => AddTransactionScreen(
                   transaction: transaction,
                   baseCurrency: baseCurrency,
+                  displayCurrency: displayCurrency,
                 ),
               ),
             );
@@ -605,6 +606,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           builder: (context) => AddTransactionScreen(
                             transaction: transaction,
                             baseCurrency: baseCurrency,
+                            displayCurrency: displayCurrency,
                           ),
                         ),
                       );
@@ -652,6 +654,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   MaterialPageRoute(
                     builder: (context) => AddTransactionScreen(
                       baseCurrency: baseCurrency,
+                      displayCurrency: displayCurrency,
                     ),
                   ),
                 );

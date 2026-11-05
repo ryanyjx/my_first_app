@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'currency_service.dart';
@@ -5,11 +7,13 @@ import 'currency_service.dart';
 class AddTransactionScreen extends StatefulWidget {
   final Map<String, dynamic>? transaction;
   final String baseCurrency;
+  final String displayCurrency;
 
   const AddTransactionScreen({
     super.key,
     this.transaction,
     this.baseCurrency = 'MYR',
+    this.displayCurrency = 'MYR',
   });
 
   @override
@@ -34,10 +38,34 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       transactionType = transaction['type'];
       selectedCategory = transaction['category'];
       descriptionController.text = transaction['description'];
-      amountController.text = transaction['amount'].toString();
+      loadTransactionAmount(
+        (transaction['amount'] as num).toDouble(),
+      );
       selectedDate = transaction['date'] != null
           ? DateTime.parse(transaction['date'])
           : DateTime.now();
+    }
+  }
+
+  Future<void> loadTransactionAmount(double amount) async {
+    try {
+      final convertedAmount = await CurrencyService.convertAmount(
+        amount: amount,
+        fromCurrency: widget.baseCurrency,
+        toCurrency: widget.displayCurrency,
+      );
+
+      if (!mounted) return;
+
+      amountController.text = convertedAmount.toStringAsFixed(2);
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to load the converted transaction amount.'),
+        ),
+      );
     }
   }
 
@@ -48,7 +76,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     super.dispose();
   }
 
-  void saveTransaction() {
+  Future<void> saveTransaction() async {
     final description = descriptionController.text.trim();
     final amount = double.tryParse(amountController.text.trim());
 
@@ -61,9 +89,28 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       return;
     }
 
+    double amountInBaseCurrency;
+
+    try {
+      amountInBaseCurrency = await CurrencyService.convertAmount(
+        amount: amount,
+        fromCurrency: widget.displayCurrency,
+        toCurrency: widget.baseCurrency,
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to convert currency. Please try again.'),
+        ),
+      );
+      return;
+    }
+
     final transaction = {
       'description': description,
-      'amount': amount,
+      'amount': amountInBaseCurrency,
       'type': transactionType,
       'category': selectedCategory,
       'date': selectedDate.toIso8601String(),
@@ -124,7 +171,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            Text('Amount (${widget.baseCurrency})'),
+            Text('Amount (${widget.displayCurrency})'),
             const SizedBox(height: 8),
             TextField(
               controller: amountController,
@@ -137,7 +184,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               decoration: InputDecoration(
                 hintText: '0.00',
                 prefixText:
-                    '${CurrencyService.getCurrencySymbol(widget.baseCurrency)} ',
+                    '${CurrencyService.getCurrencySymbol(widget.displayCurrency)} ',
                 border: const OutlineInputBorder(),
               ),
             ),
