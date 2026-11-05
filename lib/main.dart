@@ -1,8 +1,11 @@
+// ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
+
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'add_transaction_screen.dart';
 import 'package:intl/intl.dart';
+import 'monthly_overview_screen.dart';
 
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
@@ -44,6 +47,20 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   List<Map<String, dynamic>> transactions = [];
+
+  DateTime selectedMonth = DateTime.now();
+
+  List<Map<String, dynamic>> get filteredTransactions {
+    return transactions.where((transaction) {
+      if (transaction['date'] == null) return false;
+
+      final date = DateTime.parse(transaction['date']);
+
+      return date.year == selectedMonth.year &&
+          date.month == selectedMonth.month;
+    }).toList();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -109,6 +126,18 @@ class _HomeScreenState extends State<HomeScreen> {
         .fold(0.0, (sum, t) => sum + (t['amount'] as num).toDouble());
   }
 
+  double get monthlyIncome {
+    return filteredTransactions
+        .where((t) => t['type'] == 'Income')
+        .fold(0.0, (sum, t) => sum + (t['amount'] as num).toDouble());
+  }
+
+  double get monthlyExpenses {
+    return filteredTransactions
+        .where((t) => t['type'] == 'Expense')
+        .fold(0.0, (sum, t) => sum + (t['amount'] as num).toDouble());
+  }
+
   double get totalBalance {
     return totalIncome - totalExpenses;
   }
@@ -125,19 +154,19 @@ class _HomeScreenState extends State<HomeScreen> {
               // Header
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
+                children: const [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Hello there 👋',
                         style: TextStyle(
                           color: Colors.white70,
                           fontSize: 14,
                         ),
                       ),
-                      const SizedBox(height: 5),
-                      const Text(
+                      SizedBox(height: 5),
+                      Text(
                         'BudgetBuddy',
                         style: TextStyle(
                           fontSize: 26,
@@ -148,7 +177,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   CircleAvatar(
                     backgroundColor: cardColor,
-                    child: const Icon(Icons.person, color: blue),
+                    child: Icon(Icons.person, color: blue),
                   ),
                 ],
               ),
@@ -156,39 +185,72 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 30),
 
               // Total Balance
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3D7BFF), Color(0xFF2455C3)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Total Balance',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    SizedBox(height: 12),
-                    Text(
-                      'RM ${totalBalance.toStringAsFixed(2)}',
-                      style: TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MonthlyOverviewScreen(
+                        transactions: transactions,
                       ),
                     ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Your current balance',
-                      style: TextStyle(color: Colors.white70),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3D7BFF), Color(0xFF2455C3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
                     ),
-                  ],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Total Balance',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      SizedBox(height: 12),
+                      Text(
+                        'RM ${totalBalance.toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Your current balance',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          Text(
+                            'View Monthly Overview',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(width: 5),
+                          const Icon(
+                            Icons.arrow_forward_ios,
+                            color: Colors.white,
+                            size: 12,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
 
@@ -200,7 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: SummaryCard(
                       title: 'Income',
-                      amount: 'RM ${totalIncome.toStringAsFixed(2)}',
+                      amount: 'RM ${monthlyIncome.toStringAsFixed(2)}',
                       icon: Icons.arrow_downward,
                       iconColor: Colors.greenAccent,
                     ),
@@ -209,7 +271,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   Expanded(
                     child: SummaryCard(
                       title: 'Expenses',
-                      amount: 'RM ${totalExpenses.toStringAsFixed(2)}',
+                      amount: 'RM ${monthlyExpenses.toStringAsFixed(2)}',
                       icon: Icons.arrow_upward,
                       iconColor: Colors.redAccent,
                     ),
@@ -220,17 +282,43 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 30),
 
               // Recent Transactions
-              const Text(
-                'Recent Transactions',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Recent Transactions',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: selectedMonth,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2035),
+                        initialDatePickerMode: DatePickerMode.year,
+                      );
+
+                      if (picked != null) {
+                        setState(() {
+                          selectedMonth = DateTime(picked.year, picked.month);
+                        });
+                      }
+                    },
+                    child: Text(
+                      DateFormat('MMMM yyyy').format(selectedMonth),
+                      style: const TextStyle(color: Colors.blueAccent),
+                    ),
+                  ),
+                ],
               ),
 
               const SizedBox(height: 15),
 
-              if (transactions.isEmpty)
+              if (filteredTransactions.isEmpty)
                 const Padding(
                   padding: EdgeInsets.symmetric(vertical: 20),
                   child: Center(
@@ -241,7 +329,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 )
               else
-                ...transactions.reversed.map<Widget>((transaction) {
+                ...filteredTransactions.reversed.map<Widget>((transaction) {
                   final isExpense = transaction['type'] == 'Expense';
                   final amount = transaction['amount'] as double;
 
