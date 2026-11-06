@@ -7,6 +7,21 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+IconData getCategoryIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'food':
+      return Icons.restaurant;
+    case 'transport':
+      return Icons.directions_car;
+    case 'shopping':
+      return Icons.shopping_bag;
+    case 'bills':
+      return Icons.receipt_long;
+    default:
+      return Icons.category;
+  }
+}
+
 class BudgetScreen extends StatefulWidget {
   static Future<void> checkBudgetNotifications({
     required List<Map<String, dynamic>> transactions,
@@ -413,12 +428,27 @@ class _BudgetScreenState extends State<BudgetScreen> {
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              category,
-                              style: const TextStyle(
-                                fontSize: 17,
-                                fontWeight: FontWeight.bold,
-                              ),
+                            Row(
+                              children: [
+                                CircleAvatar(
+                                  radius: 22,
+                                  backgroundColor:
+                                      Colors.blue.withOpacity(0.15),
+                                  child: Icon(
+                                    getCategoryIcon(category),
+                                    color: Colors.blueAccent,
+                                    size: 22,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  category,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
                             IconButton(
                               onPressed: () {

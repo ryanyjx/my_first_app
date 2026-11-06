@@ -5,6 +5,49 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 import 'currency_service.dart';
 import 'month_year_picker.dart';
+import 'transaction_details_screen.dart';
+
+IconData getCategoryIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'food':
+    case 'food & drinks':
+      return Icons.restaurant;
+
+    case 'transport':
+    case 'transportation':
+      return Icons.directions_car;
+
+    case 'shopping':
+      return Icons.shopping_bag;
+
+    case 'bills':
+    case 'utilities':
+      return Icons.receipt_long;
+
+    case 'salary':
+    case 'income':
+      return Icons.account_balance_wallet;
+
+    case 'business':
+      return Icons.business;
+
+    case 'gift':
+      return Icons.card_giftcard;
+
+    case 'entertainment':
+      return Icons.movie;
+
+    case 'health':
+    case 'healthcare':
+      return Icons.medical_services;
+
+    case 'education':
+      return Icons.school;
+
+    default:
+      return Icons.category;
+  }
+}
 
 class HistoryScreen extends StatefulWidget {
   final List<Map<String, dynamic>> transactions;
@@ -222,7 +265,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 children: [
                   Expanded(
                     child: TextField(
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Search...',
                         prefixIcon: Icon(Icons.search),
                         border: OutlineInputBorder(),
@@ -231,7 +274,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                       onChanged: (value) => setState(() => searchText = value),
                     ),
                   ),
-                  SizedBox(width: 10),
+                  const SizedBox(width: 10),
                   OutlinedButton.icon(
                     onPressed: chooseMonth,
                     icon: const Icon(Icons.calendar_month, size: 18),
@@ -264,10 +307,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         border: OutlineInputBorder(),
                       ),
                       items: ['All', 'Income', 'Expense']
-                          .map((type) => DropdownMenuItem(
-                                value: type,
-                                child: Text(type),
-                              ))
+                          .map(
+                            (type) => DropdownMenuItem(
+                              value: type,
+                              child: Text(type),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         setState(() {
@@ -284,12 +329,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
                         labelText: 'Category',
                         border: OutlineInputBorder(),
                       ),
-                      items: ['All', ...categories]
-                          .toSet()
-                          .map((category) => DropdownMenuItem(
-                                value: category,
-                                child: Text(category),
-                              ))
+                      items: {
+                        'All',
+                        ...categories,
+                      }
+                          .map(
+                            (category) => DropdownMenuItem(
+                              value: category,
+                              child: Text(category),
+                            ),
+                          )
                           .toList(),
                       onChanged: (value) {
                         setState(() {
@@ -339,6 +388,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
                           final date = DateTime.tryParse(
                             transaction['date']?.toString() ?? '',
                           );
+
+                          final category =
+                              transaction['category']?.toString() ?? 'Other';
 
                           return Dismissible(
                             key: ValueKey(
@@ -398,9 +450,10 @@ class _HistoryScreenState extends State<HistoryScreen> {
                               margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
                                 leading: CircleAvatar(
-                                  backgroundColor: const Color(0xFF121826),
+                                  backgroundColor:
+                                      const Color(0xFF3D7BFF).withOpacity(0.15),
                                   child: Icon(
-                                    Icons.receipt_long,
+                                    getCategoryIcon(category),
                                     color: const Color(0xFF3D7BFF),
                                   ),
                                 ),
@@ -408,7 +461,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   transaction['description'] ?? '',
                                 ),
                                 subtitle: Text(
-                                  '${transaction['category']} • '
+                                  '$category • '
                                   '${date != null ? DateFormat('dd MMM yyyy').format(date) : 'No date'}',
                                 ),
                                 trailing: Text(
@@ -421,7 +474,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
                                   ),
                                 ),
                                 onTap: () async {
-                                  await widget.onEdit(transaction);
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          TransactionDetailsScreen(
+                                        transaction: transaction,
+                                        baseCurrency: baseCurrency,
+                                        displayCurrency: displayCurrency,
+                                        exchangeRates: exchangeRates,
+                                        onEdit: widget.onEdit,
+                                        onDelete: widget.onDelete,
+                                      ),
+                                    ),
+                                  );
 
                                   if (mounted) {
                                     setState(() {});

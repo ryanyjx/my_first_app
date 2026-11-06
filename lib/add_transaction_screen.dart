@@ -1,7 +1,10 @@
 // ignore_for_file: use_build_context_synchronously
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:path_provider/path_provider.dart';
 
 import 'currency_service.dart';
 
@@ -25,6 +28,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
   String transactionType = 'Expense';
   String selectedCategory = 'Food';
   DateTime selectedDate = DateTime.now();
+  String? receiptImagePath;
 
   final descriptionController = TextEditingController();
   final amountController = TextEditingController();
@@ -36,6 +40,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
     final transaction = widget.transaction;
 
     if (transaction != null) {
+      receiptImagePath = transaction['receiptImagePath'];
       transactionType = transaction['type'];
       selectedCategory = transaction['category'];
       descriptionController.text = transaction['description'];
@@ -68,6 +73,30 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         ),
       );
     }
+  }
+
+  Future<void> pickReceiptImage(ImageSource source) async {
+    final picker = ImagePicker();
+
+    final pickedImage = await picker.pickImage(
+      source: source,
+      imageQuality: 80,
+    );
+
+    if (pickedImage == null) return;
+
+    final directory = await getApplicationDocumentsDirectory();
+
+    final savedPath =
+        '${directory.path}/receipt_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+    final savedImage = await File(pickedImage.path).copy(savedPath);
+
+    if (!mounted) return;
+
+    setState(() {
+      receiptImagePath = savedImage.path;
+    });
   }
 
   @override
@@ -115,6 +144,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
       'type': transactionType,
       'category': selectedCategory,
       'date': selectedDate.toIso8601String(),
+      'receiptImagePath': receiptImagePath,
     };
 
     Navigator.pop(context, {
@@ -237,7 +267,56 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
                 '${selectedDate.day}/${selectedDate.month}/${selectedDate.year}',
               ),
             ),
+            const Text('Add Photo'),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => pickReceiptImage(ImageSource.gallery),
+                    icon: const Icon(Icons.photo_library),
+                    label: const Text('Gallery'),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () => pickReceiptImage(ImageSource.camera),
+                    icon: const Icon(Icons.camera_alt),
+                    label: const Text('Camera'),
+                  ),
+                ),
+              ],
+            ),
+            if (receiptImagePath != null) ...[
+              const SizedBox(height: 15),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(
+                  File(receiptImagePath!),
+                  height: 180,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      receiptImagePath = null;
+                    });
+                  },
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  label: const Text(
+                    'Remove Photo',
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
+              ),
+            ],
             const SizedBox(height: 20),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

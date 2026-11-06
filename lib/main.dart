@@ -18,6 +18,7 @@ import 'history_screen.dart';
 import 'profile_screen.dart';
 import 'currency_service.dart';
 import 'notification_service.dart';
+import 'transaction_details_screen.dart';
 
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
@@ -848,31 +849,68 @@ class _HomeScreenState extends State<HomeScreen> {
                     },
                     child: GestureDetector(
                       onTap: () async {
-                        final result =
-                            await Navigator.push<Map<String, dynamic>>(
+                        await Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (context) => AddTransactionScreen(
+                            builder: (context) => TransactionDetailsScreen(
                               transaction: transaction,
                               baseCurrency: baseCurrency,
                               displayCurrency: displayCurrency,
+                              exchangeRates: exchangeRates,
+                              onEdit: (editedTransaction) async {
+                                final result =
+                                    await Navigator.push<Map<String, dynamic>>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => AddTransactionScreen(
+                                      transaction: editedTransaction,
+                                      baseCurrency: baseCurrency,
+                                      displayCurrency: displayCurrency,
+                                    ),
+                                  ),
+                                );
+
+                                if (result != null) {
+                                  setState(() {
+                                    final index =
+                                        transactions.indexOf(editedTransaction);
+
+                                    if (index != -1) {
+                                      transactions[index] = result;
+                                    }
+                                  });
+
+                                  await saveTransactions();
+
+                                  await BudgetScreen.checkBudgetNotifications(
+                                    transactions: transactions,
+                                    userId: userId,
+                                  );
+                                }
+                              },
+                              onDelete: (deletedTransaction) async {
+                                setState(() {
+                                  transactions.remove(deletedTransaction);
+                                  selectedIndex = 0;
+                                });
+
+                                await saveTransactions();
+
+                                await BudgetScreen.checkBudgetNotifications(
+                                  transactions: transactions,
+                                  userId: userId,
+                                );
+
+                                if (context.mounted) {
+                                  Navigator.pop(context);
+                                }
+                              },
                             ),
                           ),
                         );
 
-                        if (result != null) {
-                          setState(() {
-                            final index = transactions.indexOf(transaction);
-                            if (index != -1) {
-                              transactions[index] = result;
-                            }
-                          });
-
-                          await saveTransactions();
-                          await BudgetScreen.checkBudgetNotifications(
-                            transactions: transactions,
-                            userId: userId,
-                          );
+                        if (mounted) {
+                          setState(() {});
                         }
                       },
                       child: TransactionTile(
@@ -1048,6 +1086,42 @@ class SummaryCard extends StatelessWidget {
   }
 }
 
+IconData getCategoryIcon(String category) {
+  switch (category.toLowerCase()) {
+    case 'food':
+    case 'food & drinks':
+      return Icons.restaurant;
+
+    case 'transport':
+    case 'transportation':
+      return Icons.directions_car;
+
+    case 'shopping':
+      return Icons.shopping_bag;
+
+    case 'bills':
+    case 'utilities':
+      return Icons.receipt_long;
+
+    case 'entertainment':
+      return Icons.movie;
+
+    case 'health':
+    case 'healthcare':
+      return Icons.medical_services;
+
+    case 'education':
+      return Icons.school;
+
+    case 'salary':
+    case 'income':
+      return Icons.account_balance_wallet;
+
+    default:
+      return Icons.category;
+  }
+}
+
 // Transaction Tile
 class TransactionTile extends StatelessWidget {
   final String title;
@@ -1078,27 +1152,13 @@ class TransactionTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          InkWell(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProfileScreen(),
-                ),
-              );
-            },
-            borderRadius: BorderRadius.circular(30),
-            child: CircleAvatar(
-              backgroundColor: cardColor,
-              backgroundImage:
-                  FirebaseAuth.instance.currentUser?.photoURL != null
-                      ? NetworkImage(
-                          FirebaseAuth.instance.currentUser!.photoURL!,
-                        )
-                      : null,
-              child: FirebaseAuth.instance.currentUser?.photoURL == null
-                  ? const Icon(Icons.person, color: blue)
-                  : null,
+          CircleAvatar(
+            radius: 25,
+            backgroundColor: blue.withOpacity(0.15),
+            child: Icon(
+              getCategoryIcon(category),
+              color: blue,
+              size: 24,
             ),
           ),
           const SizedBox(width: 12),

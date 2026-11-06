@@ -5,6 +5,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 
+import 'help_support_screen.dart';
+
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
 const Color blue = Color(0xFF3D7BFF);
@@ -554,41 +556,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: cardColor,
+              ListTile(
+                tileColor: cardColor,
+                shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.currency_exchange, color: blue),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Currency',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 5),
-                          Text(
-                            getCurrencyName(currentCurrency),
-                            style: const TextStyle(color: Colors.white60),
-                          ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit, color: blue),
-                      onPressed: changeCurrency,
-                    ),
-                  ],
+                leading: const Icon(Icons.currency_exchange, color: blue),
+                title: const Text('Currency'),
+                subtitle: Text(getCurrencyName(currentCurrency)),
+                trailing: IconButton(
+                  icon: const Icon(Icons.edit, color: blue),
+                  onPressed: changeCurrency,
                 ),
               ),
               const SizedBox(height: 12),
@@ -607,6 +585,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
                 ),
               ),
+              const SizedBox(height: 12),
+              ListTile(
+                tileColor: cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                leading: const Icon(
+                  Icons.help_outline,
+                  color: blue,
+                ),
+                title: const Text('Help & Support'),
+                subtitle: const Text('Learn how to use BudgetBuddy'),
+                trailing: const Icon(
+                  Icons.arrow_forward_ios,
+                  size: 16,
+                  color: Colors.white60,
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const HelpSupportScreen(),
+                    ),
+                  );
+                },
+              ),
+              const SizedBox(height: 12),
               const SizedBox(height: 25),
               SizedBox(
                 width: double.infinity,
