@@ -75,10 +75,12 @@ class BudgetScreen extends StatefulWidget {
   }
 
   final List<Map<String, dynamic>> transactions;
+  final Future<void> Function() onRefresh;
 
   const BudgetScreen({
     super.key,
     required this.transactions,
+    required this.onRefresh,
   });
 
   @override
@@ -87,12 +89,14 @@ class BudgetScreen extends StatefulWidget {
 
 class _BudgetScreenState extends State<BudgetScreen> {
   String get userId => FirebaseAuth.instance.currentUser!.uid;
+
   String baseCurrency = 'MYR';
   String displayCurrency = 'MYR';
 
   Map<String, double> exchangeRates = {
     'MYR': 1.0,
   };
+
   final List<String> categories = [
     'Food',
     'Transport',
@@ -132,6 +136,12 @@ class _BudgetScreenState extends State<BudgetScreen> {
     super.initState();
     loadBudgets();
     loadCurrencySettings();
+  }
+
+  Future<void> refreshBudgetPage() async {
+    await widget.onRefresh();
+    await loadBudgets();
+    await loadCurrencySettings();
   }
 
   Future<void> loadCurrencySettings() async {
@@ -227,7 +237,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
   Future<void> checkBudgetNotifications() async {
     final now = DateTime.now();
 
-    // Only send notifications for the current month.
     if (selectedMonth.year != now.year || selectedMonth.month != now.month) {
       return;
     }
@@ -243,7 +252,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
 
       final monthKey = '${now.year}_${now.month}';
 
-      // Check whether spending has reached 80%.
       if (spent >= budget * 0.8) {
         final warningKey = 'budget_warning_${userId}_${category}_$monthKey';
 
@@ -260,7 +268,6 @@ class _BudgetScreenState extends State<BudgetScreen> {
         }
       }
 
-      // Check whether spending has exceeded the budget.
       if (spent > budget) {
         final exceededKey = 'budget_exceeded_${userId}_${category}_$monthKey';
 
@@ -358,101 +365,99 @@ class _BudgetScreenState extends State<BudgetScreen> {
         title: const Text('My Budgets'),
         backgroundColor: const Color(0xFF1E293B),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Monthly Budgets',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton.icon(
-                  onPressed: selectMonth,
-                  icon: const Icon(Icons.calendar_month),
-                  label: Text(
-                    '${selectedMonth.month}/${selectedMonth.year}',
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: categories.length,
-                itemBuilder: (context, index) {
-                  final category = categories[index];
-                  final spent = getSpentForCategory(category);
-                  final budget = budgets[category] ?? 0;
-                  final progress =
-                      budget > 0 ? (spent / budget).clamp(0.0, 1.0) : 0.0;
-                  final isOverBudget = budget > 0 && spent > budget;
-                  final isNearBudget =
-                      budget > 0 && spent >= budget * 0.8 && spent <= budget;
-
-                  return Card(
-                    color: const Color(0xFF1E293B),
-                    margin: const EdgeInsets.only(bottom: 15),
-                    child: Padding(
-                      padding: const EdgeInsets.all(18),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                category,
-                                style: const TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              IconButton(
-                                onPressed: () {
-                                  editBudget(category);
-                                },
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.blueAccent,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Spent: ${formatDisplayAmount(spent)}',
-                          ),
-                          Text(
-                            'Budget: ${formatDisplayAmount(budget)}',
-                          ),
-                          const SizedBox(height: 12),
-                          LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 8,
-                            backgroundColor: Colors.grey.shade700,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              isOverBudget
-                                  ? Colors.redAccent
-                                  : isNearBudget
-                                      ? Colors.orangeAccent
-                                      : Colors.blueAccent,
-                            ),
-                          ),
-                        ],
-                      ),
+      body: RefreshIndicator(
+        onRefresh: refreshBudgetPage,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Monthly Budgets',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                  );
-                },
+                  ),
+                  TextButton.icon(
+                    onPressed: selectMonth,
+                    icon: const Icon(Icons.calendar_month),
+                    label: Text(
+                      '${selectedMonth.month}/${selectedMonth.year}',
+                    ),
+                  ),
+                ],
               ),
-            ),
-          ],
+              const SizedBox(height: 20),
+              ...categories.map((category) {
+                final spent = getSpentForCategory(category);
+                final budget = budgets[category] ?? 0;
+                final progress =
+                    budget > 0 ? (spent / budget).clamp(0.0, 1.0) : 0.0;
+                final isOverBudget = budget > 0 && spent > budget;
+                final isNearBudget =
+                    budget > 0 && spent >= budget * 0.8 && spent <= budget;
+
+                return Card(
+                  color: const Color(0xFF1E293B),
+                  margin: const EdgeInsets.only(bottom: 15),
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              category,
+                              style: const TextStyle(
+                                fontSize: 17,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: () {
+                                editBudget(category);
+                              },
+                              icon: const Icon(
+                                Icons.edit,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Spent: ${formatDisplayAmount(spent)}',
+                        ),
+                        Text(
+                          'Budget: ${formatDisplayAmount(budget)}',
+                        ),
+                        const SizedBox(height: 12),
+                        LinearProgressIndicator(
+                          value: progress,
+                          minHeight: 8,
+                          backgroundColor: Colors.grey.shade700,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            isOverBudget
+                                ? Colors.redAccent
+                                : isNearBudget
+                                    ? Colors.orangeAccent
+                                    : Colors.blueAccent,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ],
+          ),
         ),
       ),
     );
