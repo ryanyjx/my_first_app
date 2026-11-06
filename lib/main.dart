@@ -509,6 +509,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case 1:
         return BudgetScreen(
           transactions: transactions,
+          onRefresh: () async {
+            await initializeMonthlyTransactions();
+          },
         );
 
       case 2:
