@@ -564,313 +564,322 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget buildHomePage() {
     return SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header
-            Row(
-              children: [
-                Expanded(
+      child: RefreshIndicator(
+        onRefresh: () async {
+          await initializeMonthlyTransactions();
+          await loadCurrencySettings();
+          await loadProfilePicture();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Hello ${FirebaseAuth.instance.currentUser?.displayName ?? 'there'} 👋',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'BudgetBuddy',
+                          style: TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  CircleAvatar(
+                    backgroundColor: cardColor,
+                    backgroundImage: profileImagePath != null
+                        ? FileImage(File(profileImagePath!))
+                        : (FirebaseAuth.instance.currentUser?.photoURL != null
+                            ? NetworkImage(
+                                FirebaseAuth.instance.currentUser!.photoURL!,
+                              )
+                            : null) as ImageProvider?,
+                    child: profileImagePath == null &&
+                            FirebaseAuth.instance.currentUser?.photoURL == null
+                        ? const Icon(Icons.person, color: blue)
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                ],
+              ),
+
+              const SizedBox(height: 30),
+
+              // Total Balance
+              InkWell(
+                borderRadius: BorderRadius.circular(20),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => MonthlyOverviewScreen(
+                        transactions: transactions,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF3D7BFF), Color(0xFF2455C3)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      const Text(
+                        'Total Balance',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 12),
                       Text(
-                        'Hello ${FirebaseAuth.instance.currentUser?.displayName ?? 'there'} 👋',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        formatDisplayAmount(totalBalance),
                         style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 14,
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
-                      const SizedBox(height: 5),
+                      const SizedBox(height: 8),
                       const Text(
-                        'BudgetBuddy',
-                        style: TextStyle(
-                          fontSize: 26,
-                          fontWeight: FontWeight.bold,
+                        'Your current balance',
+                        style: TextStyle(color: Colors.white70),
+                      ),
+                      const SizedBox(height: 16),
+                      const Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'View Monthly Overview →',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
-                CircleAvatar(
-                  backgroundColor: cardColor,
-                  backgroundImage: profileImagePath != null
-                      ? FileImage(File(profileImagePath!))
-                      : (FirebaseAuth.instance.currentUser?.photoURL != null
-                          ? NetworkImage(
-                              FirebaseAuth.instance.currentUser!.photoURL!,
-                            )
-                          : null) as ImageProvider?,
-                  child: profileImagePath == null &&
-                          FirebaseAuth.instance.currentUser?.photoURL == null
-                      ? const Icon(Icons.person, color: blue)
-                      : null,
-                ),
-                const SizedBox(width: 10),
-              ],
-            ),
+              ),
 
-            const SizedBox(height: 30),
+              const SizedBox(height: 25),
 
-// Total Balance
-            InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => MonthlyOverviewScreen(
-                      transactions: transactions,
+              // Fixed Monthly Income and Expenses
+              Row(
+                children: [
+                  Expanded(
+                    child: SummaryCard(
+                      title: 'Fixed Monthly Income',
+                      amount: formatDisplayAmount(fixedMonthlyIncome),
+                      icon: Icons.arrow_downward,
+                      iconColor: Colors.greenAccent,
+                      onEdit: () {
+                        editFixedMonthlyValues(isIncome: true);
+                      },
                     ),
                   ),
-                );
-              },
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    colors: [Color(0xFF3D7BFF), Color(0xFF2455C3)],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Total Balance',
-                      style: TextStyle(color: Colors.white70),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    child: SummaryCard(
+                      title: 'Fixed Monthly Expenses',
+                      amount: formatDisplayAmount(fixedMonthlyExpenses),
+                      icon: Icons.arrow_upward,
+                      iconColor: Colors.redAccent,
+                      onEdit: () {
+                        editFixedMonthlyValues(isIncome: false);
+                      },
                     ),
-                    const SizedBox(height: 12),
-                    Text(
-                      formatDisplayAmount(totalBalance),
-                      style: const TextStyle(
-                        fontSize: 32,
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 25),
+
+              // Recent Transactions
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Recent Transactions',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  TextButton(
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    onPressed: () async {
+                      final picked = await showMonthYearPicker(
+                        context: context,
+                        initialDate: selectedMonth,
+                      );
+
+                      if (picked != null) {
+                        setState(() {
+                          selectedMonth = picked;
+                        });
+                      }
+                    },
+                    child: Text(
+                      DateFormat('MMM yyyy').format(selectedMonth),
+                      style: const TextStyle(
+                        color: Colors.blueAccent,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 15),
+
+              if (filteredTransactions.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(
+                    child: Text(
+                      'No new transactions yet.',
+                      style: TextStyle(color: Colors.white60),
+                    ),
+                  ),
+                )
+              else
+                ...filteredTransactions.reversed.map<Widget>((transaction) {
+                  final isExpense = transaction['type'] == 'Expense';
+                  final amount = (transaction['amount'] as num).toDouble();
+
+                  return Dismissible(
+                    key: ValueKey(
+                      transaction['id'] ?? transaction.hashCode,
+                    ),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      padding: const EdgeInsets.only(right: 20),
+                      alignment: Alignment.centerRight,
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: const Icon(
+                        Icons.delete,
                         color: Colors.white,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Your current balance',
-                      style: TextStyle(color: Colors.white70),
-                    ),
-                    const SizedBox(height: 16),
-                    const Align(
-                      alignment: Alignment.centerRight,
-                      child: Text(
-                        'View Monthly Overview →',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 25),
-
-            // Fixed Monthly Income and Expenses
-            Row(
-              children: [
-                Expanded(
-                  child: SummaryCard(
-                    title: 'Fixed Monthly Income',
-                    amount: formatDisplayAmount(fixedMonthlyIncome),
-                    icon: Icons.arrow_downward,
-                    iconColor: Colors.greenAccent,
-                    onEdit: () {
-                      editFixedMonthlyValues(isIncome: true);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 15),
-                Expanded(
-                  child: SummaryCard(
-                    title: 'Fixed Monthly Expenses',
-                    amount: formatDisplayAmount(fixedMonthlyExpenses),
-                    icon: Icons.arrow_upward,
-                    iconColor: Colors.redAccent,
-                    onEdit: () {
-                      editFixedMonthlyValues(isIncome: false);
-                    },
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 25),
-
-            // Recent Transactions
-            Row(
-              children: [
-                const Expanded(
-                  child: Text(
-                    'Recent Transactions',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 4),
-                TextButton(
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  onPressed: () async {
-                    final picked = await showMonthYearPicker(
-                      context: context,
-                      initialDate: selectedMonth,
-                    );
-
-                    if (picked != null) {
-                      setState(() {
-                        selectedMonth = picked;
-                      });
-                    }
-                  },
-                  child: Text(
-                    DateFormat('MMM yyyy').format(selectedMonth),
-                    style: const TextStyle(
-                      color: Colors.blueAccent,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 15),
-
-            if (filteredTransactions.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                  child: Text(
-                    'No new transactions yet.',
-                    style: TextStyle(color: Colors.white60),
-                  ),
-                ),
-              )
-            else
-              ...filteredTransactions.reversed.map<Widget>((transaction) {
-                final isExpense = transaction['type'] == 'Expense';
-                final amount = (transaction['amount'] as num).toDouble();
-
-                return Dismissible(
-                  key: ValueKey(
-                    transaction['id'] ?? transaction.hashCode,
-                  ),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.only(right: 20),
-                    alignment: Alignment.centerRight,
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: const Icon(
-                      Icons.delete,
-                      color: Colors.white,
-                    ),
-                  ),
-                  confirmDismiss: (direction) async {
-                    return await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Delete Transaction?'),
-                        content: const Text(
-                          'Are you sure you want to delete this transaction?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context, false);
-                            },
-                            child: const Text('Cancel'),
+                    confirmDismiss: (direction) async {
+                      return await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Delete Transaction?'),
+                          content: const Text(
+                            'Are you sure you want to delete this transaction?',
                           ),
-                          TextButton(
-                            onPressed: () {
-                              Navigator.pop(context, true);
-                            },
-                            child: const Text(
-                              'Delete',
-                              style: TextStyle(color: Colors.red),
+                          actions: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context, false);
+                              },
+                              child: const Text('Cancel'),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                  onDismissed: (direction) async {
-                    setState(() {
-                      transactions.remove(transaction);
-                    });
-
-                    await saveTransactions();
-                    await BudgetScreen.checkBudgetNotifications(
-                      transactions: transactions,
-                      userId: userId,
-                    );
-                  },
-                  child: GestureDetector(
-                    onTap: () async {
-                      final result = await Navigator.push<Map<String, dynamic>>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => AddTransactionScreen(
-                            transaction: transaction,
-                            baseCurrency: baseCurrency,
-                            displayCurrency: displayCurrency,
-                          ),
+                            TextButton(
+                              onPressed: () {
+                                Navigator.pop(context, true);
+                              },
+                              child: const Text(
+                                'Delete',
+                                style: TextStyle(color: Colors.red),
+                              ),
+                            ),
+                          ],
                         ),
                       );
-
-                      if (result != null) {
-                        setState(() {
-                          final index = transactions.indexOf(transaction);
-                          if (index != -1) {
-                            transactions[index] = result;
-                          }
-                        });
-
-                        await saveTransactions();
-                        await BudgetScreen.checkBudgetNotifications(
-                          transactions: transactions,
-                          userId: userId,
-                        );
-                      }
                     },
-                    child: TransactionTile(
-                      title: transaction['description'] as String,
-                      category: transaction['category'] as String,
-                      amount:
-                          '${isExpense ? '- ' : '+ '}${formatDisplayAmount(amount)}',
-                      date: transaction['date'] ?? '',
-                      icon: Icons.receipt_long,
-                      isExpense: isExpense,
+                    onDismissed: (direction) async {
+                      setState(() {
+                        transactions.remove(transaction);
+                      });
+
+                      await saveTransactions();
+                      await BudgetScreen.checkBudgetNotifications(
+                        transactions: transactions,
+                        userId: userId,
+                      );
+                    },
+                    child: GestureDetector(
+                      onTap: () async {
+                        final result =
+                            await Navigator.push<Map<String, dynamic>>(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AddTransactionScreen(
+                              transaction: transaction,
+                              baseCurrency: baseCurrency,
+                              displayCurrency: displayCurrency,
+                            ),
+                          ),
+                        );
+
+                        if (result != null) {
+                          setState(() {
+                            final index = transactions.indexOf(transaction);
+                            if (index != -1) {
+                              transactions[index] = result;
+                            }
+                          });
+
+                          await saveTransactions();
+                          await BudgetScreen.checkBudgetNotifications(
+                            transactions: transactions,
+                            userId: userId,
+                          );
+                        }
+                      },
+                      child: TransactionTile(
+                        title: transaction['description'] as String,
+                        category: transaction['category'] as String,
+                        amount:
+                            '${isExpense ? '- ' : '+ '}${formatDisplayAmount(amount)}',
+                        date: transaction['date'] ?? '',
+                        icon: Icons.receipt_long,
+                        isExpense: isExpense,
+                      ),
                     ),
-                  ),
-                );
-              }).toList(),
-          ],
+                  );
+                }).toList(),
+            ],
+          ),
         ),
       ),
     );
