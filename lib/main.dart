@@ -103,6 +103,8 @@ class _HomeScreenState extends State<HomeScreen> {
   double startingBalance = 0.00;
   double startingIncome = 0.00;
   double startingExpenses = 0.00;
+  double fixedMonthlyIncome = 0.00;
+  double fixedMonthlyExpenses = 0.00;
   String baseCurrency = 'MYR';
   String displayCurrency = 'MYR';
 
@@ -126,9 +128,71 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    loadTransactions();
-    loadStartingValues();
+
+    initializeMonthlyTransactions();
     loadCurrencySettings();
+  }
+
+  Future<void> initializeMonthlyTransactions() async {
+    await loadTransactions();
+    await loadStartingValues();
+    await loadFixedMonthlyValues();
+    await generateMonthlyTransactions();
+  }
+
+  Future<void> generateMonthlyTransactions() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final now = DateTime.now();
+    final currentMonth = DateFormat('yyyy-MM').format(now);
+
+    final generatedKey = 'fixedTransactionsGeneratedV2_$userId';
+
+    final lastGeneratedMonth = prefs.getString(generatedKey);
+
+    // Wait until both fixed amounts have been configured.
+    if (fixedMonthlyIncome <= 0 || fixedMonthlyExpenses <= 0) {
+      return;
+    }
+
+    // Prevent duplicate transactions in the same month.
+    if (lastGeneratedMonth == currentMonth) {
+      return;
+    }
+
+    final transactionDate = DateTime(now.year, now.month, 1);
+
+    final newTransactions = <Map<String, dynamic>>[];
+
+    if (fixedMonthlyIncome > 0) {
+      newTransactions.add({
+        'id': 'fixed_income_$currentMonth',
+        'description': 'Fixed Monthly Income',
+        'amount': fixedMonthlyIncome,
+        'type': 'Income',
+        'category': 'Salary',
+        'date': transactionDate.toIso8601String(),
+      });
+    }
+
+    if (fixedMonthlyExpenses > 0) {
+      newTransactions.add({
+        'id': 'fixed_expenses_$currentMonth',
+        'description': 'Fixed Monthly Expenses',
+        'amount': fixedMonthlyExpenses,
+        'type': 'Expense',
+        'category': 'Bills',
+        'date': transactionDate.toIso8601String(),
+      });
+    }
+
+    setState(() {
+      transactions.addAll(newTransactions);
+    });
+
+    await saveTransactions();
+
+    await prefs.setString(generatedKey, currentMonth);
   }
 
   Future<void> loadCurrencySettings() async {
@@ -252,6 +316,119 @@ class _HomeScreenState extends State<HomeScreen> {
       startingIncome = prefs.getDouble(incomeKey) ?? 0.00;
       startingExpenses = prefs.getDouble(expensesKey) ?? 0.00;
     });
+  }
+
+  Future<void> loadFixedMonthlyValues() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    if (!mounted) return;
+
+    setState(() {
+      fixedMonthlyIncome =
+          prefs.getDouble('fixedMonthlyIncome_$userId') ?? 0.00;
+
+      fixedMonthlyExpenses =
+          prefs.getDouble('fixedMonthlyExpenses_$userId') ?? 0.00;
+    });
+  }
+
+  Future<void> editFixedMonthlyValues({
+    required bool isIncome,
+  }) async {
+    final controller = TextEditingController(text: '00.00');
+
+    final result = await showDialog<double>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(
+          isIncome
+              ? 'Edit Fixed Monthly Income'
+              : 'Edit Fixed Monthly Expenses',
+        ),
+        content: TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          onChanged: (value) {
+            String digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+
+            digits = digits.replaceFirst(
+              RegExp(r'^0+(?=\d)'),
+              '',
+            );
+
+            if (digits.isEmpty) {
+              digits = '0';
+            }
+
+            digits = digits.padLeft(3, '0');
+
+            final formatted = '${digits.substring(0, digits.length - 2)}.'
+                '${digits.substring(digits.length - 2)}';
+
+            controller.value = TextEditingValue(
+              text: formatted,
+              selection: TextSelection.collapsed(
+                offset: formatted.length,
+              ),
+            );
+          },
+          decoration: InputDecoration(
+            labelText: 'Amount ($displayCurrency)',
+            prefixText:
+                '${CurrencyService.getCurrencySymbol(displayCurrency)} ',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, null);
+            },
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final amount = double.tryParse(controller.text.trim());
+
+              if (amount == null || amount < 0) {
+                return;
+              }
+
+              Navigator.pop(context, amount);
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+
+    if (result == null) {
+      return;
+    }
+
+    final rate = exchangeRates[displayCurrency] ?? 1.0;
+    final baseAmount = result / rate;
+
+    final prefs = await SharedPreferences.getInstance();
+
+    if (isIncome) {
+      await prefs.setDouble('fixedMonthlyIncome_$userId', baseAmount);
+    } else {
+      await prefs.setDouble('fixedMonthlyExpenses_$userId', baseAmount);
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      if (isIncome) {
+        fixedMonthlyIncome = baseAmount;
+      } else {
+        fixedMonthlyExpenses = baseAmount;
+      }
+    });
+
+    if (fixedMonthlyIncome > 0 && fixedMonthlyExpenses > 0) {
+      await generateMonthlyTransactions();
+    }
   }
 
   Future<void> saveTransactions() async {
@@ -399,7 +576,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 30),
 
-            // Total Balance
+// Total Balance
             InkWell(
               borderRadius: BorderRadius.circular(20),
               onTap: () {
@@ -445,24 +622,16 @@ class _HomeScreenState extends State<HomeScreen> {
                       style: TextStyle(color: Colors.white70),
                     ),
                     const SizedBox(height: 16),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'View Monthly Overview',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(width: 5),
-                        const Icon(
-                          Icons.arrow_forward_ios,
+                    const Align(
+                      alignment: Alignment.centerRight,
+                      child: Text(
+                        'View Monthly Overview →',
+                        style: TextStyle(
                           color: Colors.white,
-                          size: 12,
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
@@ -471,30 +640,36 @@ class _HomeScreenState extends State<HomeScreen> {
 
             const SizedBox(height: 25),
 
-            // Income and Expenses
+            // Fixed Monthly Income and Expenses
             Row(
               children: [
                 Expanded(
                   child: SummaryCard(
-                    title: 'Income',
-                    amount: formatDisplayAmount(monthlyIncome),
+                    title: 'Fixed Monthly Income',
+                    amount: formatDisplayAmount(fixedMonthlyIncome),
                     icon: Icons.arrow_downward,
                     iconColor: Colors.greenAccent,
+                    onEdit: () {
+                      editFixedMonthlyValues(isIncome: true);
+                    },
                   ),
                 ),
                 const SizedBox(width: 15),
                 Expanded(
                   child: SummaryCard(
-                    title: 'Expenses',
-                    amount: formatDisplayAmount(monthlyExpenses),
+                    title: 'Fixed Monthly Expenses',
+                    amount: formatDisplayAmount(fixedMonthlyExpenses),
                     icon: Icons.arrow_upward,
                     iconColor: Colors.redAccent,
+                    onEdit: () {
+                      editFixedMonthlyValues(isIncome: false);
+                    },
                   ),
                 ),
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 25),
 
             // Recent Transactions
             Row(
@@ -712,11 +887,13 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // Summary Card
+// Summary Card
 class SummaryCard extends StatelessWidget {
   final String title;
   final String amount;
   final IconData icon;
   final Color iconColor;
+  final VoidCallback onEdit;
 
   const SummaryCard({
     super.key,
@@ -724,12 +901,14 @@ class SummaryCard extends StatelessWidget {
     required this.amount,
     required this.icon,
     required this.iconColor,
+    required this.onEdit,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      height: 130,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cardColor,
         borderRadius: BorderRadius.circular(16),
@@ -738,20 +917,42 @@ class SummaryCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: iconColor, size: 25),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
           Text(
             title,
-            style: const TextStyle(color: Colors.white70),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 13,
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 5),
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
             child: Text(
               amount,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 19,
                 fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const Spacer(),
+          Align(
+            alignment: Alignment.bottomRight,
+            child: TextButton.icon(
+              onPressed: onEdit,
+              icon: const Icon(Icons.edit, size: 14),
+              label: const Text(
+                'Edit',
+                style: TextStyle(fontSize: 13),
+              ),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
             ),
           ),
