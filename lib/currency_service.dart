@@ -1,7 +1,7 @@
-import 'dart:convert';
-
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+
+import 'dart:convert';
 
 class CurrencyService {
   static const List<String> supportedCurrencies = [
@@ -124,6 +124,6 @@ class CurrencyService {
   ) {
     final symbol = getCurrencySymbol(currency);
 
-    return '$symbol ${amount.toStringAsFixed(2)}';
+    return '$symbol${amount.toStringAsFixed(2)}';
   }
 }

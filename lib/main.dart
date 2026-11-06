@@ -16,6 +16,7 @@ import 'month_year_picker.dart';
 import 'history_screen.dart';
 import 'profile_screen.dart';
 import 'currency_service.dart';
+import 'notification_service.dart';
 
 const Color backgroundColor = Color(0xFF121826);
 const Color cardColor = Color(0xFF1E293B);
@@ -27,6 +28,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await NotificationService.initialize();
 
   runApp(const BudgetBuddyApp());
 }
@@ -509,6 +512,10 @@ class _HomeScreenState extends State<HomeScreen> {
               });
 
               await saveTransactions();
+              await BudgetScreen.checkBudgetNotifications(
+                transactions: transactions,
+                userId: userId,
+              );
             }
           },
           onDelete: (transaction) async {
@@ -517,6 +524,10 @@ class _HomeScreenState extends State<HomeScreen> {
             });
 
             await saveTransactions();
+            await BudgetScreen.checkBudgetNotifications(
+              transactions: transactions,
+              userId: userId,
+            );
           },
         );
 
@@ -772,6 +783,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     });
 
                     await saveTransactions();
+                    await BudgetScreen.checkBudgetNotifications(
+                      transactions: transactions,
+                      userId: userId,
+                    );
                   },
                   child: GestureDetector(
                     onTap: () async {
@@ -795,6 +810,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         });
 
                         await saveTransactions();
+                        await BudgetScreen.checkBudgetNotifications(
+                          transactions: transactions,
+                          userId: userId,
+                        );
                       }
                     },
                     child: TransactionTile(
@@ -840,6 +859,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   });
 
                   await saveTransactions();
+                  await BudgetScreen.checkBudgetNotifications(
+                    transactions: transactions,
+                    userId: userId,
+                  );
                 }
               },
               child: const Icon(Icons.add, size: 30),
