@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -185,12 +184,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final directory = await getApplicationDocumentsDirectory();
 
-    final savedImage = await File(pickedImage.path).copy(
-      '${directory.path}/profile_${user.uid}.jpg',
-    );
+    final savedPath =
+        '${directory.path}/profile_${user.uid}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+
+    final savedImage = await File(pickedImage.path).copy(savedPath);
 
     final prefs = await SharedPreferences.getInstance();
 
+    // Remove the previous locally saved picture.
+    final oldPath = prefs.getString('profileImage_${user.uid}');
+
+    if (oldPath != null && oldPath != savedImage.path) {
+      final oldFile = File(oldPath);
+
+      if (await oldFile.exists()) {
+        await oldFile.delete();
+      }
+    }
+
+    // Save the new picture.
     await prefs.setString(
       'profileImage_${user.uid}',
       savedImage.path,
@@ -205,15 +217,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Future<void> deleteProfilePicture() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null || profileImagePath == null) return;
-
-    final imageFile = File(profileImagePath!);
-
-    if (await imageFile.exists()) {
-      await imageFile.delete();
-    }
+    if (user == null) return;
 
     final prefs = await SharedPreferences.getInstance();
+
+    final oldPath = prefs.getString('profileImage_${user.uid}');
+
+    if (oldPath != null) {
+      final imageFile = File(oldPath);
+
+      if (await imageFile.exists()) {
+        await imageFile.delete();
+      }
+    }
 
     await prefs.remove('profileImage_${user.uid}');
 
@@ -423,11 +439,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     backgroundColor: cardColor,
                     backgroundImage: profileImagePath != null
                         ? FileImage(File(profileImagePath!))
-                        : (user?.photoURL != null
-                            ? NetworkImage(user!.photoURL!)
-                            : null) as ImageProvider?,
-                    child: profileImagePath == null &&
-                            user?.photoURL == null
+                        : null,
+                    child: profileImagePath == null
                         ? const Icon(Icons.person, size: 60, color: blue)
                         : null,
                   ),

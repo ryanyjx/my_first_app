@@ -783,7 +783,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 )
               else
-                ...filteredTransactions.reversed.map<Widget>((transaction) {
+                ...filteredTransactions.reversed
+                    .take(3)
+                    .map<Widget>((transaction) {
                   final isExpense = transaction['type'] == 'Expense';
                   final amount = (transaction['amount'] as num).toDouble();
 
@@ -1126,13 +1128,6 @@ class TransactionTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Text(
-                  category,
-                  style: const TextStyle(
-                    color: Colors.white60,
-                    fontSize: 12,
-                  ),
-                ),
               ],
             ),
           ),
