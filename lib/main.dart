@@ -1,6 +1,7 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables
 
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'add_transaction_screen.dart';
@@ -94,6 +95,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int selectedIndex = 0;
+  String? profileImagePath;
 
   List<Map<String, dynamic>> transactions = [];
 
@@ -128,12 +130,33 @@ class _HomeScreenState extends State<HomeScreen> {
     }).toList();
   }
 
+  Future<void> loadProfilePicture() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final savedPath = prefs.getString('profileImage_${user.uid}');
+
+    if (!mounted) return;
+
+    if (savedPath != null && await File(savedPath).exists()) {
+      setState(() {
+        profileImagePath = savedPath;
+      });
+    } else {
+      setState(() {
+        profileImagePath = null;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
     initializeMonthlyTransactions();
     loadCurrencySettings();
+    loadProfilePicture();
   }
 
   Future<void> initializeMonthlyTransactions() async {
@@ -576,16 +599,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(width: 10),
                 CircleAvatar(
                   backgroundColor: cardColor,
-                  backgroundImage:
-                      FirebaseAuth.instance.currentUser?.photoURL != null
+                  backgroundImage: profileImagePath != null
+                      ? FileImage(File(profileImagePath!))
+                      : (FirebaseAuth.instance.currentUser?.photoURL != null
                           ? NetworkImage(
                               FirebaseAuth.instance.currentUser!.photoURL!,
                             )
-                          : null,
-                  child: FirebaseAuth.instance.currentUser?.photoURL == null
+                          : null) as ImageProvider?,
+                  child: profileImagePath == null &&
+                          FirebaseAuth.instance.currentUser?.photoURL == null
                       ? const Icon(Icons.person, color: blue)
                       : null,
                 ),
+                const SizedBox(width: 10),
               ],
             ),
 
@@ -893,8 +919,11 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedIndex = index;
           });
 
-          // Refresh currency settings when leaving Profile.
-          if (selectedIndex != 3) {
+          if (index == 0) {
+            loadProfilePicture();
+          }
+
+          if (index != 3) {
             loadCurrencySettings();
           }
         },
