@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -32,12 +33,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) return;
 
     final prefs = await SharedPreferences.getInstance();
-
     final savedPath = prefs.getString('profileImage_${user.uid}');
 
-    if (savedPath != null && File(savedPath).existsSync()) {
+    if (!mounted) return;
+
+    if (savedPath != null && await File(savedPath).exists()) {
       setState(() {
         profileImagePath = savedPath;
+      });
+    } else {
+      setState(() {
+        profileImagePath = null;
       });
     }
   }
@@ -53,8 +59,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     final savedCurrency = prefs.getString(currencyKey) ?? 'MYR';
 
-    // Set MYR as the base currency for existing accounts
-    // that don't have a base currency saved yet.
     if (!prefs.containsKey(baseCurrencyKey)) {
       await prefs.setString(baseCurrencyKey, 'MYR');
     }
@@ -64,6 +68,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() {
       currentCurrency = savedCurrency;
     });
+  }
+
+  Future<void> refreshProfile() async {
+    await loadProfilePicture();
+    await loadCurrency();
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      await user.reload();
+    }
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   Future<void> changeCurrency() async {
@@ -81,28 +100,38 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'MYR'),
-            child: const Text('MYR - Malaysian Ringgit (RM)',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'MYR - Malaysian Ringgit (RM)',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'SGD'),
-            child: const Text('SGD - Singapore Dollar (S\$)',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'SGD - Singapore Dollar (S\$)',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'USD'),
-            child: const Text('USD - US Dollar (\$)',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'USD - US Dollar (\$)',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'GBP'),
-            child: const Text('GBP - British Pound (£)',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'GBP - British Pound (£)',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
           SimpleDialogOption(
             onPressed: () => Navigator.pop(context, 'EUR'),
-            child: const Text('EUR - Euro (€)',
-                style: TextStyle(color: Colors.white)),
+            child: const Text(
+              'EUR - Euro (€)',
+              style: TextStyle(color: Colors.white),
+            ),
           ),
         ],
       ),
@@ -187,6 +216,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final prefs = await SharedPreferences.getInstance();
 
     await prefs.remove('profileImage_${user.uid}');
+
+    if (!mounted) return;
 
     setState(() {
       profileImagePath = null;
@@ -319,7 +350,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
       );
 
       await user.reauthenticateWithCredential(credential);
-
       await user.verifyBeforeUpdateEmail(newEmail);
 
       if (!mounted) return;
@@ -377,202 +407,210 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('My Profile'),
         backgroundColor: backgroundColor,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            const SizedBox(height: 30),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                CircleAvatar(
-                  radius: 60,
-                  backgroundColor: cardColor,
-                  backgroundImage: profileImagePath != null
-                      ? FileImage(File(profileImagePath!))
-                      : (user?.photoURL != null
-                          ? NetworkImage(user!.photoURL!)
-                          : null) as ImageProvider?,
-                  child: profileImagePath == null && user?.photoURL == null
-                      ? const Icon(Icons.person, size: 60, color: blue)
-                      : null,
-                ),
-                const SizedBox(width: 18),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        user?.displayName ?? 'User',
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        user?.email ?? '',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 13,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      PopupMenuButton<String>(
-                        tooltip: 'Profile picture options',
-                        onSelected: (value) async {
-                          if (value == 'upload') {
-                            await uploadProfilePicture();
-                          } else if (value == 'delete') {
-                            await deleteProfilePicture();
-                          }
-                        },
-                        itemBuilder: (context) => [
-                          const PopupMenuItem(
-                            value: 'upload',
-                            child: Row(
-                              children: [
-                                Icon(Icons.upload, color: blue),
-                                SizedBox(width: 10),
-                                Text('Upload Profile Picture'),
-                              ],
-                            ),
-                          ),
-                          const PopupMenuItem(
-                            value: 'delete',
-                            child: Row(
-                              children: [
-                                Icon(Icons.delete_outline,
-                                    color: Colors.redAccent),
-                                SizedBox(width: 10),
-                                Text('Delete Profile Picture'),
-                              ],
-                            ),
-                          ),
-                        ],
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 9,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: blue),
-                          ),
-                          child: const Text(
-                            'Change Picture',
-                            style: TextStyle(
-                              color: blue,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 15),
-            ListTile(
-              tileColor: cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              leading: const Icon(Icons.person_outline, color: blue),
-              title: const Text('Username'),
-              subtitle: Text(user?.displayName ?? 'Not set'),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit, color: blue),
-                onPressed: editUsername,
-              ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              tileColor: cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              leading: const Icon(Icons.email_outlined, color: blue),
-              title: const Text('Email'),
-              subtitle: Text(user?.email ?? 'Not available'),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit, color: blue),
-                onPressed: editEmail,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: cardColor,
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
+      body: RefreshIndicator(
+        onRefresh: refreshProfile,
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            children: [
+              const SizedBox(height: 30),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  const Icon(Icons.currency_exchange, color: blue),
-                  const SizedBox(width: 12),
+                  CircleAvatar(
+                    radius: 60,
+                    backgroundColor: cardColor,
+                    backgroundImage: profileImagePath != null
+                        ? FileImage(File(profileImagePath!))
+                        : (user?.photoURL != null
+                            ? NetworkImage(user!.photoURL!)
+                            : null) as ImageProvider?,
+                    child: profileImagePath == null &&
+                            user?.photoURL == null
+                        ? const Icon(Icons.person, size: 60, color: blue)
+                        : null,
+                  ),
+                  const SizedBox(width: 18),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
-                          'Currency',
-                          style: TextStyle(
-                            color: Colors.white,
+                        Text(
+                          user?.displayName ?? 'User',
+                          style: const TextStyle(
+                            fontSize: 22,
                             fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 5),
                         Text(
-                          getCurrencyName(currentCurrency),
-                          style: const TextStyle(color: Colors.white60),
+                          user?.email ?? '',
+                          style: const TextStyle(
+                            color: Colors.white60,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        PopupMenuButton<String>(
+                          tooltip: 'Profile picture options',
+                          onSelected: (value) async {
+                            if (value == 'upload') {
+                              await uploadProfilePicture();
+                            } else if (value == 'delete') {
+                              await deleteProfilePicture();
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(
+                              value: 'upload',
+                              child: Row(
+                                children: [
+                                  Icon(Icons.upload, color: blue),
+                                  SizedBox(width: 10),
+                                  Text('Upload Profile Picture'),
+                                ],
+                              ),
+                            ),
+                            const PopupMenuItem(
+                              value: 'delete',
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.redAccent,
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text('Delete Profile Picture'),
+                                ],
+                              ),
+                            ),
+                          ],
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: cardColor,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: blue),
+                            ),
+                            child: const Text(
+                              'Change Picture',
+                              style: TextStyle(
+                                color: blue,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit, color: blue),
-                    onPressed: changeCurrency,
-                  ),
                 ],
               ),
-            ),
-            const SizedBox(height: 12),
-            ListTile(
-              tileColor: cardColor,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              leading: const Icon(Icons.lock_outline, color: blue),
-              title: const Text('Password'),
-              subtitle: const Text('••••••••'),
-              trailing: IconButton(
-                icon: const Icon(Icons.edit, color: blue),
-                onPressed: () {
-                  // We will add the edit function here.
-                },
-              ),
-            ),
-            const Spacer(),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: () => logout(context),
-                icon: const Icon(Icons.logout),
-                label: const Text('Log Out'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+              const SizedBox(height: 15),
+              ListTile(
+                tileColor: cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                leading: const Icon(Icons.person_outline, color: blue),
+                title: const Text('Username'),
+                subtitle: Text(user?.displayName ?? 'Not set'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.edit, color: blue),
+                  onPressed: editUsername,
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 12),
+              ListTile(
+                tileColor: cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                leading: const Icon(Icons.email_outlined, color: blue),
+                title: const Text('Email'),
+                subtitle: Text(user?.email ?? 'Not available'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.edit, color: blue),
+                  onPressed: editEmail,
+                ),
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.currency_exchange, color: blue),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Currency',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            getCurrencyName(currentCurrency),
+                            style: const TextStyle(color: Colors.white60),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit, color: blue),
+                      onPressed: changeCurrency,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                tileColor: cardColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                leading: const Icon(Icons.lock_outline, color: blue),
+                title: const Text('Password'),
+                subtitle: const Text('••••••••'),
+                trailing: IconButton(
+                  icon: const Icon(Icons.edit, color: blue),
+                  onPressed: () {
+                    // We will add the edit function here.
+                  },
+                ),
+              ),
+              const SizedBox(height: 25),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => logout(context),
+                  icon: const Icon(Icons.logout),
+                  label: const Text('Log Out'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.redAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 15),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
         ),
       ),
     );
