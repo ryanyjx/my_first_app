@@ -555,6 +555,10 @@ class _HomeScreenState extends State<HomeScreen> {
               userId: userId,
             );
           },
+          onRefresh: () async {
+            await initializeMonthlyTransactions();
+            await loadCurrencySettings();
+          },
         );
 
       case 3:
