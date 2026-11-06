@@ -548,28 +548,32 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             // Header
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Hello ${FirebaseAuth.instance.currentUser?.displayName ?? 'there'} 👋',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 14,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Hello ${FirebaseAuth.instance.currentUser?.displayName ?? 'there'} 👋',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 14,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 5),
-                    const Text(
-                      'BudgetBuddy',
-                      style: TextStyle(
-                        fontSize: 26,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 5),
+                      const Text(
+                        'BudgetBuddy',
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 10),
                 CircleAvatar(
                   backgroundColor: cardColor,
                   backgroundImage:
@@ -684,16 +688,25 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Recent Transactions
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Recent Transactions',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+                const Expanded(
+                  child: Text(
+                    'Recent Transactions',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 4),
                 TextButton(
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   onPressed: () async {
                     final picked = await showMonthYearPicker(
                       context: context,
@@ -707,8 +720,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     }
                   },
                   child: Text(
-                    DateFormat('MMMM yyyy').format(selectedMonth),
-                    style: const TextStyle(color: Colors.blueAccent),
+                    DateFormat('MMM yyyy').format(selectedMonth),
+                    style: const TextStyle(
+                      color: Colors.blueAccent,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
               ],
